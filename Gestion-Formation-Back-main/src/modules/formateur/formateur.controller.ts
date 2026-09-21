@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UseInterceptors, UploadedFile, Req, Query, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UseInterceptors, UploadedFile, Query, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
@@ -7,7 +7,6 @@ import { CreateFormateurDto } from './dto/create-formateur.dto';
 import { UpdateFormateurDto } from './dto/update-formateur.dto';
 import { ManualJwtGuard } from '../auth/guards/manual-jwt.guard';
 import { OptionalJwtGuard } from '../auth/guards/optional-jwt.guard';
-import { CabinetOrAdminGuard } from '../auth/guards/cabinet-or-admin.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 
 @Controller('formateurs')
@@ -15,51 +14,33 @@ export class FormateurController {
   constructor(private readonly userService: UserService) {}
 
   @Post()
-  @UseGuards(ManualJwtGuard, CabinetOrAdminGuard)
-  async create(@Body() dto: CreateFormateurDto, @Req() req: any) {
-    let cabinetId: string | undefined;
-    if (req.user?.role === 'cabinet' && req.user?.email) {
-      cabinetId = await this.userService.resolveCabinetId(req.user.email);
-    }
-    return this.userService.createFormateur({ ...dto, cabinetId });
+  @UseGuards(ManualJwtGuard, AdminGuard)
+  async create(@Body() dto: CreateFormateurDto) {
+    return this.userService.createFormateur(dto);
   }
 
   @Get()
   @UseGuards(OptionalJwtGuard)
-  async findAll(@Req() req: any, @Query('cabinetId') queryCabinetId?: string, @Query('all') all?: string) {
-    let cabinetId: string | undefined;
-    if (all === 'true') {
-      // return all formateurs (admin KPI use case)
-    } else if (queryCabinetId && typeof queryCabinetId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(queryCabinetId)) {
-      cabinetId = queryCabinetId;
-    } else if (req.user?.role === 'cabinet' && req.user?.email) {
-      cabinetId = await this.userService.resolveCabinetId(req.user.email);
-    }
-    return this.userService.findAllFormateurs(cabinetId, all === 'true');
+  async findAll(@Query('all') all?: string) {
+    return this.userService.findAllFormateurs();
   }
 
   @Get(':id')
-  @UseGuards(ManualJwtGuard, CabinetOrAdminGuard)
+  @UseGuards(ManualJwtGuard, AdminGuard)
   findOne(@Param('id') id: string) {
     return this.userService.findOne(id);
   }
 
   @Patch(':id')
-  @UseGuards(ManualJwtGuard, CabinetOrAdminGuard)
+  @UseGuards(ManualJwtGuard, AdminGuard)
   update(@Param('id') id: string, @Body() dto: UpdateFormateurDto) {
     return this.userService.update(id, dto);
   }
 
   @Delete(':id')
-  @UseGuards(ManualJwtGuard, CabinetOrAdminGuard)
+  @UseGuards(ManualJwtGuard, AdminGuard)
   remove(@Param('id') id: string) {
     return this.userService.remove(id);
-  }
-
-  @Post(':id/clone')
-  @UseGuards(ManualJwtGuard, AdminGuard)
-  async clone(@Param('id') id: string) {
-    return this.userService.cloneFormateurForPlatform(id);
   }
 
   private readonly documentFields: Record<string, string> = {
@@ -71,7 +52,7 @@ export class FormateurController {
   };
 
   @Post(':id/upload-document/:type')
-  @UseGuards(ManualJwtGuard, CabinetOrAdminGuard)
+  @UseGuards(ManualJwtGuard, AdminGuard)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({

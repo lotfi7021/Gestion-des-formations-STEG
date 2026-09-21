@@ -48,7 +48,7 @@ const cabineFields = [
   "noteSupports",
 ] as const;
 
-const cabinetFieldFallbacks: Record<string, string[]> = {
+const conditionsFieldFallbacks: Record<string, string[]> = {
   noteObjectifClarte: [],
   noteContenu: [],
   noteUtilite: [],
@@ -120,16 +120,16 @@ function statusBadge(value: number, thresholds: { pass: number; warn: number }) 
   };
 }
 
-function interpretationLabel(value: number, type: "formateur" | "cabinet" | "formation") {
+function interpretationLabel(value: number, type: "formateur" | "conditions" | "formation") {
   const pct = safeNum(value);
   if (pct >= 70) {
     if (type === "formateur") return "Retenu";
-    if (type === "cabinet") return "Performant";
+    if (type === "conditions") return "Performant";
     return "Réussie";
   }
   if (pct >= 40) return "À améliorer";
   if (type === "formateur") return "Non retenu (exclusion 3 ans)";
-  if (type === "cabinet") return "Non retenu (exclusion consultations)";
+  if (type === "conditions") return "Non retenu (exclusion consultations)";
   return "Non réussie (révision complète)";
 }
 
@@ -288,9 +288,9 @@ function exportToExcel(sessionsWithData: any[], currentYear: number) {
       const cabVals = cabFields.map((f) => (ev as any)[f]).filter((v: any) => v != null);
       const forVals = forFields.map((f) => (ev as any)[f]).filter((v: any) => v != null);
 
-      const scoreCabinetPart = cabVals.length ? avg(cabVals) : 0;
+      const scoreConditionsPart = cabVals.length ? avg(cabVals) : 0;
       const scoreFormateurPart = forVals.length ? avg(forVals) : 0;
-      const scoreConditionPart = (scoreCabinetPart + scoreFormateurPart) / 2;
+      const scoreConditionPart = (scoreConditionsPart + scoreFormateurPart) / 2;
 
       rows.push({
         "N°": n,
@@ -316,7 +316,7 @@ function exportToExcel(sessionsWithData: any[], currentYear: number) {
         "Clarté des explications": ev.noteClarteExplications ?? "",
         "Animation et interaction avec les participants": ev.noteAnimation ?? "",
         "Capacité à répondre aux questions": ev.noteCapaciteReponse ?? "",
-        "score condition du cabinet/participants": Math.round(scoreCabinetPart * 100) / 100,
+        "score condition des conditions/participants": Math.round(scoreConditionsPart * 100) / 100,
         "score formateur/participants": Math.round(scoreFormateurPart * 100) / 100,
         "Score condition de formation /participant": Math.round(scoreConditionPart * 100) / 100,
       });
@@ -329,9 +329,9 @@ function exportToExcel(sessionsWithData: any[], currentYear: number) {
       rows[rows.length - 1]["Nb de note >4"] = s.nbNotesSup4;
       rows[rows.length - 1]["Taux de participation"] = `${s.tauxParticipation}%`;
       rows[rows.length - 1]["Taux de satisfaction"] = `${s.tauxSatisfaction}%`;
-      rows[rows.length - 1]["score condition du cabinet/session"] =
-        Math.round(s.scoreCabinet * 100) / 100;
-      rows[rows.length - 1]["Taux condition du cabinet"] = `${Math.round(s.tauxCabinet)}%`;
+      rows[rows.length - 1]["score condition des conditions/session"] =
+        Math.round(s.scoreConditions * 100) / 100;
+      rows[rows.length - 1]["Taux condition des conditions"] = `${Math.round(s.tauxConditions)}%`;
       rows[rows.length - 1]["score formateur/ session"] = Math.round(s.scoreFormateur * 100) / 100;
       rows[rows.length - 1]["Taux formateur"] = `${Math.round(s.tauxFormateur)}%`;
     }
@@ -378,12 +378,12 @@ function exportToExcel(sessionsWithData: any[], currentYear: number) {
     },
     { Indicateur: "Taux de réalisation du plan", Valeur: "", Cible: "≥ 95%", Statut: "" },
     {
-      Indicateur: "Taux d'évaluation du cabinet (MSC)",
-      Valeur: `${Math.round(sessionsWithData.length ? sessionsWithData.reduce((s: number, x: any) => s + x.tauxCabinet, 0) / sessionsWithData.length : 0)}%`,
+      Indicateur: "Taux d'évaluation des conditions (MSC)",
+      Valeur: `${Math.round(sessionsWithData.length ? sessionsWithData.reduce((s: number, x: any) => s + x.tauxConditions, 0) / sessionsWithData.length : 0)}%`,
       Cible: "≥ 70%",
       Statut:
         sessionsWithData.length > 0
-          ? sessionsWithData.reduce((s: number, x: any) => s + x.tauxCabinet, 0) /
+          ? sessionsWithData.reduce((s: number, x: any) => s + x.tauxConditions, 0) /
               sessionsWithData.length >=
             70
             ? "Atteint"
@@ -452,42 +452,72 @@ function SemesterCard({ sem }: { sem: any }) {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-[11px] uppercase tracking-widest text-muted-foreground">MSC — Cabinet</p>
-              <p className={`mt-0.5 font-display text-2xl tabular-nums ${statusColor(sem.msc, { pass: 70, warn: 40 })}`}>
+              <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                MSC — Conditions
+              </p>
+              <p
+                className={`mt-0.5 font-display text-2xl tabular-nums ${statusColor(sem.msc, { pass: 70, warn: 40 })}`}
+              >
                 {Math.round(sem.msc)}%
               </p>
-              <p className="text-[10px] text-muted-foreground">{interpretationLabel(sem.msc, "cabinet")}</p>
+              <p className="text-[10px] text-muted-foreground">
+                {interpretationLabel(sem.msc, "conditions")}
+              </p>
             </div>
             <div>
-              <p className="text-[11px] uppercase tracking-widest text-muted-foreground">MSF — Formateur</p>
-              <p className={`mt-0.5 font-display text-2xl tabular-nums ${statusColor(sem.msfFormateur, { pass: 70, warn: 40 })}`}>
+              <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                MSF — Formateur
+              </p>
+              <p
+                className={`mt-0.5 font-display text-2xl tabular-nums ${statusColor(sem.msfFormateur, { pass: 70, warn: 40 })}`}
+              >
                 {Math.round(sem.msfFormateur)}%
               </p>
-              <p className="text-[10px] text-muted-foreground">{interpretationLabel(sem.msfFormateur, "formateur")}</p>
+              <p className="text-[10px] text-muted-foreground">
+                {interpretationLabel(sem.msfFormateur, "formateur")}
+              </p>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3 pt-2 border-t border-border/50">
             <div>
               <p className="text-[10px] text-muted-foreground">MSF — Formation</p>
-              <p className={`font-display text-lg tabular-nums ${statusColor(sem.msf, { pass: 70, warn: 40 })}`}>{Math.round(sem.msf)}%</p>
+              <p
+                className={`font-display text-lg tabular-nums ${statusColor(sem.msf, { pass: 70, warn: 40 })}`}
+              >
+                {Math.round(sem.msf)}%
+              </p>
             </div>
             <div>
               <p className="text-[10px] text-muted-foreground">MSP — Participation</p>
-              <p className={`font-display text-lg tabular-nums ${statusColor(sem.msp, { pass: 70, warn: 40 })}`}>{Math.round(sem.msp)}%</p>
+              <p
+                className={`font-display text-lg tabular-nums ${statusColor(sem.msp, { pass: 70, warn: 40 })}`}
+              >
+                {Math.round(sem.msp)}%
+              </p>
             </div>
             <div>
               <p className="text-[10px] text-muted-foreground">MSS — Satisfaction</p>
-              <p className={`font-display text-lg tabular-nums ${statusColor(sem.mss, { pass: 70, warn: 40 })}`}>{Math.round(sem.mss)}%</p>
+              <p
+                className={`font-display text-lg tabular-nums ${statusColor(sem.mss, { pass: 70, warn: 40 })}`}
+              >
+                {Math.round(sem.mss)}%
+              </p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <p className="text-[10px] text-muted-foreground">MSR — Réussite</p>
-              <p className={`font-display text-lg tabular-nums ${statusColor(sem.msr, { pass: 70, warn: 40 })}`}>{Math.round(sem.msr)}%</p>
+              <p
+                className={`font-display text-lg tabular-nums ${statusColor(sem.msr, { pass: 70, warn: 40 })}`}
+              >
+                {Math.round(sem.msr)}%
+              </p>
             </div>
             <div>
               <p className="text-[10px] text-muted-foreground">Sessions</p>
-              <p className="font-display text-lg tabular-nums text-muted-foreground">{sem.sessions.length}</p>
+              <p className="font-display text-lg tabular-nums text-muted-foreground">
+                {sem.sessions.length}
+              </p>
             </div>
           </div>
         </div>
@@ -514,7 +544,7 @@ function SemesterCard({ sem }: { sem: any }) {
                 {sem.sessions.map((s: any) => (
                   <tr key={s.sessionId} className="border-b border-border/50">
                     <td className="py-1.5 pr-2 font-medium">{s.formationTitle}</td>
-                    <td className="py-1.5 tabular-nums">{Math.round(s.tauxCabinet)}%</td>
+                    <td className="py-1.5 tabular-nums">{Math.round(s.tauxConditions)}%</td>
                     <td className="py-1.5 tabular-nums">{Math.round(s.tauxFormateur)}%</td>
                     <td className="py-1.5 tabular-nums">{Math.round(s.tauxEvaluation)}%</td>
                     <td className="py-1.5 tabular-nums">{s.tauxParticipation}%</td>
@@ -537,7 +567,7 @@ function SemesterCard({ sem }: { sem: any }) {
             </table>
             <div className="rounded-lg bg-muted/30 p-3 text-xs text-muted-foreground">
               <p className="font-medium text-foreground mb-1">Formules</p>
-              <p>MSC = Σ(score cabinet / session) / nb sessions × 25</p>
+              <p>MSC = Σ(score conditions / session) / nb sessions × 25</p>
               <p>MSF-Formateur = Σ(score formateur / session) / nb sessions × 25</p>
               <p>MSF = Σ(taux évaluation) / nb sessions</p>
               <p>MSP = Σ(participations) / nb sessions</p>
@@ -551,33 +581,45 @@ function SemesterCard({ sem }: { sem: any }) {
   );
 }
 
-function GrilleCard({ type, sessionsWithData, sessionMap }: { type: "formateur" | "cabinet" | "formation"; sessionsWithData: any[]; sessionMap: Map<string, any> }) {
+function GrilleCard({
+  type,
+  sessionsWithData,
+  sessionMap,
+}: {
+  type: "formateur" | "conditions" | "formation";
+  sessionsWithData: any[];
+  sessionMap: Map<string, any>;
+}) {
   const [interpOpen, setInterpOpen] = useState(false);
   const withEval = sessionsWithData.filter((s) => s.evaluations.length > 0);
   const sessionsOfType = withEval.filter((s) => {
-    if (type === "cabinet") {
+    if (type === "conditions") {
+      // Le taux « conditions » concerne toutes les sessions évaluées
       const session = sessionMap.get(s.sessionId);
-      if (!session) return false;
-      if (session.cabinetId) return true;
-      if (session.clonedFromCabinetId) return true;
-      return false;
+      return session != null;
     }
     const v = type === "formateur" ? s.tauxFormateur : s.tauxEvaluation;
     const raw = type === "formateur" ? s.scoreFormateur : s.scoreFormation;
     if (v == null || isNaN(Number(v)) || raw === 0) return false;
     return true;
   });
-  const hasAnyCabinet = type === "cabinet" && sessionsWithData.some((s) => {
-    const session = sessionMap.get(s.sessionId);
-    return session != null && (session.cabinetId != null || session.clonedFromCabinetId != null);
-  });
+  const hasAnyConditions = type === "conditions" && sessionsWithData.length > 0;
   const hasData = sessionsOfType.length > 0;
   const raw = hasData
-    ? avg(sessionsOfType.map((s) => (type === "formateur" ? s.tauxFormateur : type === "cabinet" ? s.tauxCabinet : s.tauxEvaluation)))
+    ? avg(
+        sessionsOfType.map((s) =>
+          type === "formateur"
+            ? s.tauxFormateur
+            : type === "conditions"
+              ? s.tauxConditions
+              : s.tauxEvaluation,
+        ),
+      )
     : null;
   const avgVal = raw != null && !isNaN(raw) ? raw : null;
-  const Icon = type === "formateur" ? UserCheck : type === "cabinet" ? Monitor : BookOpen;
-  const title = type === "formateur" ? "Formateur" : type === "cabinet" ? "Cabinet" : "Formation";
+  const Icon = type === "formateur" ? UserCheck : type === "conditions" ? Monitor : BookOpen;
+  const title =
+    type === "formateur" ? "Formateur" : type === "conditions" ? "Conditions" : "Formation";
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between">
@@ -587,7 +629,9 @@ function GrilleCard({ type, sessionsWithData, sessionMap }: { type: "formateur" 
           </div>
           <div>
             <p className="text-sm font-medium">{title}</p>
-            <p className={`text-2xl font-display tabular-nums ${avgVal != null ? interpretationColor(avgVal) : "text-muted-foreground"}`}>
+            <p
+              className={`text-2xl font-display tabular-nums ${avgVal != null ? interpretationColor(avgVal) : "text-muted-foreground"}`}
+            >
               {avgVal != null ? `${Math.round(avgVal)}%` : "—"}
             </p>
           </div>
@@ -602,13 +646,29 @@ function GrilleCard({ type, sessionsWithData, sessionMap }: { type: "formateur" 
           </button>
         )}
       </div>
-      <p className={`mt-3 text-xs font-medium ${avgVal != null ? interpretationColor(avgVal) : "text-muted-foreground"}`}>
-        {avgVal != null ? interpretationLabel(avgVal, type) : hasAnyCabinet ? "En attente d'évaluations" : "Aucune session"}
+      <p
+        className={`mt-3 text-xs font-medium ${avgVal != null ? interpretationColor(avgVal) : "text-muted-foreground"}`}
+      >
+        {avgVal != null
+          ? interpretationLabel(avgVal, type)
+          : hasAnyConditions
+            ? "En attente d'évaluations"
+            : "Aucune session"}
       </p>
       <div className="mt-3 space-y-1 text-[11px] text-muted-foreground">
-        <p>≥ 70% : {type === "formateur" ? "Retenu" : type === "cabinet" ? "Performant" : "Réussie"}</p>
+        <p>
+          ≥ 70% :{" "}
+          {type === "formateur" ? "Retenu" : type === "conditions" ? "Performant" : "Réussie"}
+        </p>
         <p>40-69% : À améliorer</p>
-        <p>&lt; 40% : {type === "formateur" ? "Non retenu (exclusion 3 ans)" : type === "cabinet" ? "Non retenu (exclusion consultations)" : "Non réussie (révision complète)"}</p>
+        <p>
+          &lt; 40% :{" "}
+          {type === "formateur"
+            ? "Non retenu (exclusion 3 ans)"
+            : type === "conditions"
+              ? "Non retenu (exclusion consultations)"
+              : "Non réussie (révision complète)"}
+        </p>
       </div>
       <Dialog open={interpOpen} onOpenChange={setInterpOpen}>
         <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
@@ -626,17 +686,20 @@ function GrilleCard({ type, sessionsWithData, sessionMap }: { type: "formateur" 
                   <p>3. Taux formateur = Score / session × 25</p>
                 </>
               )}
-              {type === "cabinet" && (
+              {type === "conditions" && (
                 <>
-                  <p>1. Score / participant = moyenne des 7 critères cabinet (note 1-4)</p>
-                  <p className="pl-4">= (Objectifs + Contenu + Utilité + Rythme + Confort + Équipements + Supports) / 7</p>
+                  <p>1. Score / participant = moyenne des 7 critères conditions (note 1-4)</p>
+                  <p className="pl-4">
+                    = (Objectifs + Contenu + Utilité + Rythme + Confort + Équipements + Supports) /
+                    7
+                  </p>
                   <p>2. Score / session = moyenne des scores de tous les participants</p>
-                  <p>3. Taux cabinet = Score / session × 25</p>
+                  <p>3. Taux conditions = Score / session × 25</p>
                 </>
               )}
               {type === "formation" && (
                 <>
-                  <p>1. Score formation / participant = (Score cabinet + Score formateur) / 2</p>
+                  <p>1. Score formation / participant = (Score conditions + Score formateur) / 2</p>
                   <p>2. Score formation / session = moyenne des scores de tous les participants</p>
                   <p>3. Taux évaluation = Score formation / session × 25</p>
                 </>
@@ -644,29 +707,55 @@ function GrilleCard({ type, sessionsWithData, sessionMap }: { type: "formateur" 
             </div>
             <div className="space-y-2">
               {sessionsOfType.map((s: any) => {
-                const val = type === "formateur" ? s.tauxFormateur : type === "cabinet" ? s.tauxCabinet : s.tauxEvaluation;
-                const rawScore = type === "formateur" ? s.scoreFormateur : type === "cabinet" ? s.scoreCabinet : s.scoreFormation;
+                const val =
+                  (type === "formateur"
+                    ? s.tauxFormateur
+                    : type === "conditions"
+                      ? s.tauxConditions
+                      : s.tauxEvaluation) ?? 0;
+                const rawScore =
+                  (type === "formateur"
+                    ? s.scoreFormateur
+                    : type === "conditions"
+                      ? s.scoreConditions
+                      : s.scoreFormation) ?? 0;
                 const formationId = s.sessionId ? sessionMap.get(s.sessionId)?.formation?.id : null;
                 return (
                   <div key={s.sessionId} className="rounded-lg bg-muted/30 px-4 py-2.5 text-sm">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-muted-foreground font-medium truncate">{s.formationTitle}</span>
+                        <span className="text-muted-foreground font-medium truncate">
+                          {s.formationTitle}
+                        </span>
                         <div className="flex items-center gap-1 shrink-0">
                           {formationId && (
-                            <Link to="/admin/formations" className="rounded p-0.5 text-muted-foreground/40 hover:text-primary transition-colors" title="Voir la formation">
+                            <Link
+                              to="/admin/formations"
+                              className="rounded p-0.5 text-muted-foreground/40 hover:text-primary transition-colors"
+                              title="Voir la formation"
+                            >
                               <BookOpen className="h-3 w-3" />
                             </Link>
                           )}
-                          <Link to="/admin/sessions" className="rounded p-0.5 text-muted-foreground/40 hover:text-primary transition-colors" title="Voir la session">
+                          <Link
+                            to="/admin/sessions"
+                            className="rounded p-0.5 text-muted-foreground/40 hover:text-primary transition-colors"
+                            title="Voir la session"
+                          >
                             <CalendarDays className="h-3 w-3" />
                           </Link>
-                          <Link to="/admin/formateurs" className="rounded p-0.5 text-muted-foreground/40 hover:text-primary transition-colors" title="Voir le formateur">
+                          <Link
+                            to="/admin/formateurs"
+                            className="rounded p-0.5 text-muted-foreground/40 hover:text-primary transition-colors"
+                            title="Voir le formateur"
+                          >
                             <GraduationCap className="h-3 w-3" />
                           </Link>
                         </div>
                       </div>
-                      <span className={`font-medium tabular-nums shrink-0 ${interpretationColor(val)}`}>
+                      <span
+                        className={`font-medium tabular-nums shrink-0 ${interpretationColor(val)}`}
+                      >
                         {Math.round(val)}%
                       </span>
                     </div>
@@ -680,13 +769,27 @@ function GrilleCard({ type, sessionsWithData, sessionMap }: { type: "formateur" 
             </div>
             <div className="flex items-center justify-between rounded-lg border border-border px-4 py-2.5 text-sm font-medium">
               <span>Moyenne générale</span>
-              <span className={`tabular-nums ${interpretationColor(avgVal)}`}>{Math.round(avgVal)}%</span>
+              <span
+                className={`tabular-nums ${avgVal != null ? interpretationColor(avgVal) : "text-muted-foreground"}`}
+              >
+                {avgVal != null ? `${Math.round(avgVal)}%` : "—"}
+              </span>
             </div>
             <div className="rounded-lg bg-muted/30 p-3 text-xs text-muted-foreground">
               <p className="font-medium text-foreground mb-1">Seuils d'interprétation</p>
-              <p>≥ 70% : {type === "formateur" ? "Retenu" : type === "cabinet" ? "Performant" : "Réussie"}</p>
+              <p>
+                ≥ 70% :{" "}
+                {type === "formateur" ? "Retenu" : type === "conditions" ? "Performant" : "Réussie"}
+              </p>
               <p>40-69% : À améliorer</p>
-              <p>&lt; 40% : {type === "formateur" ? "Non retenu (exclusion 3 ans)" : type === "cabinet" ? "Non retenu (exclusion consultations)" : "Non réussie (révision complète)"}</p>
+              <p>
+                &lt; 40% :{" "}
+                {type === "formateur"
+                  ? "Non retenu (exclusion 3 ans)"
+                  : type === "conditions"
+                    ? "Non retenu (exclusion consultations)"
+                    : "Non réussie (révision complète)"}
+              </p>
             </div>
           </div>
         </DialogContent>
@@ -703,12 +806,12 @@ function AdminKPIPage() {
 
   const { data: sessions } = useQuery({
     queryKey: ["sessions-all"],
-    queryFn: () => getSessions(undefined, true),
+    queryFn: () => getSessions(true),
   });
 
   const { data: formations } = useQuery({
     queryKey: ["formations-all"],
-    queryFn: () => getFormations(undefined, true),
+    queryFn: () => getFormations(true),
   });
 
   if (evLoading) {
@@ -743,14 +846,14 @@ function AdminKPIPage() {
     nbPrevus: number;
     nbReels: number;
     evaluations: any[];
-    scoreCabinet: number;
+    scoreConditions: number;
     scoreFormateur: number;
     scoreFormation: number;
     tauxEvaluation: number;
     nbNotesSup4: number;
     tauxParticipation: number;
     tauxSatisfaction: number;
-    tauxCabinet: number;
+    tauxConditions: number;
     tauxFormateur: number;
     tauxReussite: number;
     nbReussis: number;
@@ -763,10 +866,10 @@ function AdminKPIPage() {
     const nbPrevus = (session.capaciteMax ?? sessionEvals.length) || 1;
     const nbReels = session.nombreParticipants ?? sessionEvals.length;
 
-    const cabinetScores = sessionEvals
+    const conditionsScores = sessionEvals
       .map((e: any) => {
         const vals = cabineFields
-          .map((f) => getFieldValue(e, f, cabinetFieldFallbacks))
+          .map((f) => getFieldValue(e, f, conditionsFieldFallbacks))
           .filter((v) => v != null);
         return vals.length ? avg(vals) : null;
       })
@@ -781,13 +884,15 @@ function AdminKPIPage() {
       })
       .filter((v: any) => v != null);
 
-    const scoreCabinet = cabinetScores.length ? avg(cabinetScores) : 0;
+    const scoreConditions = conditionsScores.length ? avg(conditionsScores) : 0;
     const scoreFormateur = formateurScores.length ? avg(formateurScores) : 0;
     const scoreFormation =
-      cabinetScores.length || formateurScores.length ? (scoreCabinet + scoreFormateur) / 2 : 0;
+      conditionsScores.length || formateurScores.length
+        ? (scoreConditions + scoreFormateur) / 2
+        : 0;
 
     const tauxEvaluation = toPct(scoreFormation, 4);
-    const tauxCabinet = toPct(scoreCabinet, 4);
+    const tauxConditions = toPct(scoreConditions, 4);
     const tauxFormateur = toPct(scoreFormateur, 4);
 
     const nbNotesSup4 = sessionEvals.filter(
@@ -817,14 +922,14 @@ function AdminKPIPage() {
       nbPrevus,
       nbReels,
       evaluations: sessionEvals,
-      scoreCabinet,
+      scoreConditions,
       scoreFormateur,
       scoreFormation,
       tauxEvaluation,
       nbNotesSup4,
       tauxParticipation,
       tauxSatisfaction,
-      tauxCabinet,
+      tauxConditions,
       tauxFormateur,
       tauxReussite,
       nbReussis,
@@ -861,7 +966,7 @@ function AdminKPIPage() {
     {
       label: `S1 ${currentYear}`,
       sessions: s1Sessions,
-      msc: toPct(semAvg(s1Sessions, "scoreCabinet"), 4),
+      msc: toPct(semAvg(s1Sessions, "scoreConditions"), 4),
       msfFormateur: toPct(semAvg(s1Sessions, "scoreFormateur"), 4),
       msf: semAvg(s1Sessions, "tauxEvaluation"),
       msp: semAvg(s1Sessions, "tauxParticipation"),
@@ -871,7 +976,7 @@ function AdminKPIPage() {
     {
       label: `S2 ${currentYear}`,
       sessions: s2Sessions,
-      msc: toPct(semAvg(s2Sessions, "scoreCabinet"), 4),
+      msc: toPct(semAvg(s2Sessions, "scoreConditions"), 4),
       msfFormateur: toPct(semAvg(s2Sessions, "scoreFormateur"), 4),
       msf: semAvg(s2Sessions, "tauxEvaluation"),
       msp: semAvg(s2Sessions, "tauxParticipation"),
@@ -1012,7 +1117,7 @@ function AdminKPIPage() {
             Grille d'interprétation — Évaluations par session
           </h2>
           <div className="grid gap-4 sm:grid-cols-3">
-            {(["formateur", "cabinet", "formation"] as const).map((type) => (
+            {(["formateur", "conditions", "formation"] as const).map((type) => (
               <GrilleCard
                 key={type}
                 type={type}
@@ -1056,7 +1161,7 @@ function AdminKPIPage() {
                     Participation
                   </th>
                   <th className="px-3 py-3 text-[11px] uppercase tracking-widest text-muted-foreground">
-                    Cabinet
+                    Conditions
                   </th>
                   <th className="px-3 py-3 text-[11px] uppercase tracking-widest text-muted-foreground">
                     Formateur
@@ -1098,9 +1203,9 @@ function AdminKPIPage() {
                       {s.tauxParticipation}%
                     </td>
                     <td
-                      className={`px-3 py-3 tabular-nums font-medium ${statusColor(s.tauxCabinet, { pass: 70, warn: 40 })}`}
+                      className={`px-3 py-3 tabular-nums font-medium ${statusColor(s.tauxConditions, { pass: 70, warn: 40 })}`}
                     >
-                      {Math.round(s.tauxCabinet)}%
+                      {Math.round(s.tauxConditions)}%
                     </td>
                     <td
                       className={`px-3 py-3 tabular-nums font-medium ${statusColor(s.tauxFormateur, { pass: 70, warn: 40 })}`}

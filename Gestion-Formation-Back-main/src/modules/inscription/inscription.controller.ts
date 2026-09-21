@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Patch, Delete, Param, UseGuards, Req } from '@nestjs/common';
 import { InscriptionService } from './inscription.service';
 import { ManualJwtGuard } from '../auth/guards/manual-jwt.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';

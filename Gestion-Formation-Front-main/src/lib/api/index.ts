@@ -11,4 +11,3 @@ export * from "./notifications";
 export * from "./evaluations";
 export * from "./inscriptions";
 export * from "./signatures";
-export * from "./cabinets";

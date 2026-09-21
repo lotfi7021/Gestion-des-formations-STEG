@@ -392,7 +392,6 @@ export class SignatureService {
     doc.fontSize(10).font('Helvetica').fillColor('#666').text('Entre les soussignés :', { align: 'center' });
     doc.moveDown(1);
 
-    const sectionY = doc.y;
     doc.fontSize(11).font('Helvetica-Bold').fillColor('#1a3a5c').text("L'ORGANISME DE FORMATION :");
     doc.moveDown(0.3);
     doc.fontSize(10).font('Helvetica').fillColor('#333');

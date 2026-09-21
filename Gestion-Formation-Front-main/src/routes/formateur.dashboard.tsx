@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronUp,
   Paperclip,
+  Trash2,
 } from "lucide-react";
 import { ProtectedRoute } from "@/components/protected-route";
 import { PageShell } from "@/components/page-shell";
@@ -23,8 +24,20 @@ import { getMySessions } from "@/lib/api/sessions";
 import {
   getSessionDocuments,
   uploadSessionDocument,
+  deleteSessionDocument,
   type SessionDocument,
 } from "@/lib/api/session-documents";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/formateur/dashboard")({
@@ -95,6 +108,17 @@ function SessionCard({ session }: { session: any }) {
     enabled: expanded,
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (docId: string) => deleteSessionDocument(session.id, docId),
+    onSuccess: () => {
+      toast.success("Document supprimé");
+      queryClient.invalidateQueries({ queryKey: ["session-documents", session.id] });
+    },
+    onError: (err: Error) => {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de la suppression");
+    },
+  });
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -103,8 +127,8 @@ function SessionCard({ session }: { session: any }) {
       await uploadSessionDocument(session.id, file);
       toast.success("Document ajouté");
       queryClient.invalidateQueries({ queryKey: ["session-documents", session.id] });
-    } catch (err: any) {
-      toast.error(err.message || "Erreur lors de l'upload");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de l'upload");
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -179,15 +203,50 @@ function SessionCard({ session }: { session: any }) {
           {documents?.map((doc: SessionDocument) => {
             const token = localStorage.getItem("access_token");
             return (
-              <a
+              <div
                 key={doc.id}
-                href={`${API_BASE}/sessions/${session.id}/documents/${doc.id}/download?token=${token}`}
-                className="flex items-center gap-3 rounded-md border border-border bg-background px-3 py-2 text-sm hover:bg-secondary"
+                className="group flex items-center gap-3 rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-secondary"
               >
                 <FileText className="h-4 w-4 shrink-0 text-primary" />
-                <span className="flex-1 truncate">{doc.originalName}</span>
-                <Download className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              </a>
+                <a
+                  href={`${API_BASE}/sessions/${session.id}/documents/${doc.id}/download?token=${token}`}
+                  className="flex flex-1 items-center gap-3 truncate"
+                >
+                  <span className="truncate">{doc.originalName}</span>
+                  <Download className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                </a>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={deleteMutation.isPending}
+                      aria-label={`Supprimer ${doc.originalName}`}
+                      title="Supprimer"
+                      className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Supprimer ce document ?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        « {doc.originalName} » sera définitivement supprimé. Les participants ne
+                        pourront plus le télécharger.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Annuler</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => deleteMutation.mutate(doc.id)}
+                        className="bg-destructive text-white hover:bg-destructive/90"
+                      >
+                        Supprimer
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             );
           })}
         </div>

@@ -21,6 +21,13 @@ interface ActionIntent {
   parameters: Record<string, any>;
 }
 
+/**
+ * Modèle Groq utilisé par le chatbot.
+ * NOTE: qwen/qwen3.6-27b a été décommissionné par Groq le 14/09/2026.
+ * Voir https://console.groq.com/docs/deprecations pour les remplacements.
+ */
+const CHATBOT_MODEL = 'qwen/qwen3.8-27b';
+
 @Injectable()
 export class ChatbotService {
   constructor(
@@ -304,7 +311,7 @@ Utilise des émojis avec parcimonie.`;
             'Authorization': `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            model: 'qwen/qwen3.6-27b',
+            model: CHATBOT_MODEL,
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: question },
@@ -451,7 +458,7 @@ Extrais TOUS les paramètres fournis. Si un paramètre obligatoire manque, tente
           'Authorization': `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: 'qwen/qwen3.6-27b',
+          model: CHATBOT_MODEL,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: question },
@@ -507,7 +514,7 @@ Si action: {"type": "action", "action": "nom_action", "parameters": {"champ": "v
           'Authorization': `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: 'qwen/qwen3.6-27b',
+          model: CHATBOT_MODEL,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: question },
@@ -844,20 +851,6 @@ Si action: {"type": "action", "action": "nom_action", "parameters": {"champ": "v
     });
 
     return `Compte de ${user.prenom} ${user.nom} (${user.email}) désactivé avec succès. Un email a été envoyé.`;
-  }
-
-  private async nextEmployeIdentifiant(): Promise<string> {
-    const year = new Date().getFullYear();
-    const prefix = `${year}STG`;
-    const all = await this.employeRepo.find({
-      where: { identifiant: Like(`${prefix}%`) },
-    });
-    let max = 0;
-    for (const e of all) {
-      const n = parseInt(e.identifiant.replace(prefix, ''), 10);
-      if (!isNaN(n) && n > max) max = n;
-    }
-    return `${prefix}${String(max + 1).padStart(3, '0')}`;
   }
 
   private parseFormationType(value: string): FormationType | null {

@@ -29,7 +29,7 @@ export type DocumentSigne = {
   participantId: string | null;
   participant?: { id: string; prenom: string; nom: string };
   session?: { id: string; dateDebut: string; dateFin: string; formation?: { titre: string } };
-  metadata: Record<string, any> | null;
+  metadata: Record<string, unknown> | null;
   createdAt: string;
 };
 

@@ -16,20 +16,15 @@ import { Route as FormateursRouteImport } from './routes/formateurs'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as ConnexionRouteImport } from './routes/connexion'
 import { Route as CatalogueRouteImport } from './routes/catalogue'
-import { Route as CabinetRouteImport } from './routes/cabinet'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AProposRouteImport } from './routes/a-propos'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as CabinetIndexRouteImport } from './routes/cabinet.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ParticipantCalendrierRouteImport } from './routes/participant.calendrier'
 import { Route as FormationsIdRouteImport } from './routes/formations.$id'
 import { Route as FormateurDashboardRouteImport } from './routes/formateur.dashboard'
 import { Route as FormateurCalendrierRouteImport } from './routes/formateur.calendrier'
 import { Route as EvaluationSessionIdRouteImport } from './routes/evaluation.$sessionId'
-import { Route as CabinetSessionsRouteImport } from './routes/cabinet.sessions'
-import { Route as CabinetFormationsRouteImport } from './routes/cabinet.formations'
-import { Route as CabinetFormateursRouteImport } from './routes/cabinet.formateurs'
 import { Route as AdminSessionsRouteImport } from './routes/admin.sessions'
 import { Route as AdminParticipantsRouteImport } from './routes/admin.participants'
 import { Route as AdminParametresRouteImport } from './routes/admin.parametres'
@@ -40,7 +35,6 @@ import { Route as AdminFormateursRouteImport } from './routes/admin.formateurs'
 import { Route as AdminEvaluationsRouteImport } from './routes/admin.evaluations'
 import { Route as AdminEmployesRouteImport } from './routes/admin.employes'
 import { Route as AdminDocumentsRouteImport } from './routes/admin.documents'
-import { Route as AdminCabinetsRouteImport } from './routes/admin.cabinets'
 import { Route as AdminApprobationsRouteImport } from './routes/admin.approbations'
 
 const ProfilRoute = ProfilRouteImport.update({
@@ -78,11 +72,6 @@ const CatalogueRoute = CatalogueRouteImport.update({
   path: '/catalogue',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CabinetRoute = CabinetRouteImport.update({
-  id: '/cabinet',
-  path: '/cabinet',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -97,11 +86,6 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any)
-const CabinetIndexRoute = CabinetIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => CabinetRoute,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
@@ -132,21 +116,6 @@ const EvaluationSessionIdRoute = EvaluationSessionIdRouteImport.update({
   id: '/evaluation/$sessionId',
   path: '/evaluation/$sessionId',
   getParentRoute: () => rootRouteImport,
-} as any)
-const CabinetSessionsRoute = CabinetSessionsRouteImport.update({
-  id: '/sessions',
-  path: '/sessions',
-  getParentRoute: () => CabinetRoute,
-} as any)
-const CabinetFormationsRoute = CabinetFormationsRouteImport.update({
-  id: '/formations',
-  path: '/formations',
-  getParentRoute: () => CabinetRoute,
-} as any)
-const CabinetFormateursRoute = CabinetFormateursRouteImport.update({
-  id: '/formateurs',
-  path: '/formateurs',
-  getParentRoute: () => CabinetRoute,
 } as any)
 const AdminSessionsRoute = AdminSessionsRouteImport.update({
   id: '/sessions',
@@ -198,11 +167,6 @@ const AdminDocumentsRoute = AdminDocumentsRouteImport.update({
   path: '/documents',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminCabinetsRoute = AdminCabinetsRouteImport.update({
-  id: '/cabinets',
-  path: '/cabinets',
-  getParentRoute: () => AdminRoute,
-} as any)
 const AdminApprobationsRoute = AdminApprobationsRouteImport.update({
   id: '/approbations',
   path: '/approbations',
@@ -213,7 +177,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRouteWithChildren
-  '/cabinet': typeof CabinetRouteWithChildren
   '/catalogue': typeof CatalogueRoute
   '/connexion': typeof ConnexionRoute
   '/contact': typeof ContactRoute
@@ -222,7 +185,6 @@ export interface FileRoutesByFullPath {
   '/mes-formations': typeof MesFormationsRoute
   '/profil': typeof ProfilRoute
   '/admin/approbations': typeof AdminApprobationsRoute
-  '/admin/cabinets': typeof AdminCabinetsRoute
   '/admin/documents': typeof AdminDocumentsRoute
   '/admin/employes': typeof AdminEmployesRoute
   '/admin/evaluations': typeof AdminEvaluationsRoute
@@ -233,16 +195,12 @@ export interface FileRoutesByFullPath {
   '/admin/parametres': typeof AdminParametresRoute
   '/admin/participants': typeof AdminParticipantsRoute
   '/admin/sessions': typeof AdminSessionsRoute
-  '/cabinet/formateurs': typeof CabinetFormateursRoute
-  '/cabinet/formations': typeof CabinetFormationsRoute
-  '/cabinet/sessions': typeof CabinetSessionsRoute
   '/evaluation/$sessionId': typeof EvaluationSessionIdRoute
   '/formateur/calendrier': typeof FormateurCalendrierRoute
   '/formateur/dashboard': typeof FormateurDashboardRoute
   '/formations/$id': typeof FormationsIdRoute
   '/participant/calendrier': typeof ParticipantCalendrierRoute
   '/admin/': typeof AdminIndexRoute
-  '/cabinet/': typeof CabinetIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -255,7 +213,6 @@ export interface FileRoutesByTo {
   '/mes-formations': typeof MesFormationsRoute
   '/profil': typeof ProfilRoute
   '/admin/approbations': typeof AdminApprobationsRoute
-  '/admin/cabinets': typeof AdminCabinetsRoute
   '/admin/documents': typeof AdminDocumentsRoute
   '/admin/employes': typeof AdminEmployesRoute
   '/admin/evaluations': typeof AdminEvaluationsRoute
@@ -266,23 +223,18 @@ export interface FileRoutesByTo {
   '/admin/parametres': typeof AdminParametresRoute
   '/admin/participants': typeof AdminParticipantsRoute
   '/admin/sessions': typeof AdminSessionsRoute
-  '/cabinet/formateurs': typeof CabinetFormateursRoute
-  '/cabinet/formations': typeof CabinetFormationsRoute
-  '/cabinet/sessions': typeof CabinetSessionsRoute
   '/evaluation/$sessionId': typeof EvaluationSessionIdRoute
   '/formateur/calendrier': typeof FormateurCalendrierRoute
   '/formateur/dashboard': typeof FormateurDashboardRoute
   '/formations/$id': typeof FormationsIdRoute
   '/participant/calendrier': typeof ParticipantCalendrierRoute
   '/admin': typeof AdminIndexRoute
-  '/cabinet': typeof CabinetIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRouteWithChildren
-  '/cabinet': typeof CabinetRouteWithChildren
   '/catalogue': typeof CatalogueRoute
   '/connexion': typeof ConnexionRoute
   '/contact': typeof ContactRoute
@@ -291,7 +243,6 @@ export interface FileRoutesById {
   '/mes-formations': typeof MesFormationsRoute
   '/profil': typeof ProfilRoute
   '/admin/approbations': typeof AdminApprobationsRoute
-  '/admin/cabinets': typeof AdminCabinetsRoute
   '/admin/documents': typeof AdminDocumentsRoute
   '/admin/employes': typeof AdminEmployesRoute
   '/admin/evaluations': typeof AdminEvaluationsRoute
@@ -302,16 +253,12 @@ export interface FileRoutesById {
   '/admin/parametres': typeof AdminParametresRoute
   '/admin/participants': typeof AdminParticipantsRoute
   '/admin/sessions': typeof AdminSessionsRoute
-  '/cabinet/formateurs': typeof CabinetFormateursRoute
-  '/cabinet/formations': typeof CabinetFormationsRoute
-  '/cabinet/sessions': typeof CabinetSessionsRoute
   '/evaluation/$sessionId': typeof EvaluationSessionIdRoute
   '/formateur/calendrier': typeof FormateurCalendrierRoute
   '/formateur/dashboard': typeof FormateurDashboardRoute
   '/formations/$id': typeof FormationsIdRoute
   '/participant/calendrier': typeof ParticipantCalendrierRoute
   '/admin/': typeof AdminIndexRoute
-  '/cabinet/': typeof CabinetIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -319,7 +266,6 @@ export interface FileRouteTypes {
     | '/'
     | '/a-propos'
     | '/admin'
-    | '/cabinet'
     | '/catalogue'
     | '/connexion'
     | '/contact'
@@ -328,7 +274,6 @@ export interface FileRouteTypes {
     | '/mes-formations'
     | '/profil'
     | '/admin/approbations'
-    | '/admin/cabinets'
     | '/admin/documents'
     | '/admin/employes'
     | '/admin/evaluations'
@@ -339,16 +284,12 @@ export interface FileRouteTypes {
     | '/admin/parametres'
     | '/admin/participants'
     | '/admin/sessions'
-    | '/cabinet/formateurs'
-    | '/cabinet/formations'
-    | '/cabinet/sessions'
     | '/evaluation/$sessionId'
     | '/formateur/calendrier'
     | '/formateur/dashboard'
     | '/formations/$id'
     | '/participant/calendrier'
     | '/admin/'
-    | '/cabinet/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -361,7 +302,6 @@ export interface FileRouteTypes {
     | '/mes-formations'
     | '/profil'
     | '/admin/approbations'
-    | '/admin/cabinets'
     | '/admin/documents'
     | '/admin/employes'
     | '/admin/evaluations'
@@ -372,22 +312,17 @@ export interface FileRouteTypes {
     | '/admin/parametres'
     | '/admin/participants'
     | '/admin/sessions'
-    | '/cabinet/formateurs'
-    | '/cabinet/formations'
-    | '/cabinet/sessions'
     | '/evaluation/$sessionId'
     | '/formateur/calendrier'
     | '/formateur/dashboard'
     | '/formations/$id'
     | '/participant/calendrier'
     | '/admin'
-    | '/cabinet'
   id:
     | '__root__'
     | '/'
     | '/a-propos'
     | '/admin'
-    | '/cabinet'
     | '/catalogue'
     | '/connexion'
     | '/contact'
@@ -396,7 +331,6 @@ export interface FileRouteTypes {
     | '/mes-formations'
     | '/profil'
     | '/admin/approbations'
-    | '/admin/cabinets'
     | '/admin/documents'
     | '/admin/employes'
     | '/admin/evaluations'
@@ -407,23 +341,18 @@ export interface FileRouteTypes {
     | '/admin/parametres'
     | '/admin/participants'
     | '/admin/sessions'
-    | '/cabinet/formateurs'
-    | '/cabinet/formations'
-    | '/cabinet/sessions'
     | '/evaluation/$sessionId'
     | '/formateur/calendrier'
     | '/formateur/dashboard'
     | '/formations/$id'
     | '/participant/calendrier'
     | '/admin/'
-    | '/cabinet/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AProposRoute: typeof AProposRoute
   AdminRoute: typeof AdminRouteWithChildren
-  CabinetRoute: typeof CabinetRouteWithChildren
   CatalogueRoute: typeof CatalogueRoute
   ConnexionRoute: typeof ConnexionRoute
   ContactRoute: typeof ContactRoute
@@ -489,13 +418,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CatalogueRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/cabinet': {
-      id: '/cabinet'
-      path: '/cabinet'
-      fullPath: '/cabinet'
-      preLoaderRoute: typeof CabinetRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/admin': {
       id: '/admin'
       path: '/admin'
@@ -516,13 +438,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/cabinet/': {
-      id: '/cabinet/'
-      path: '/'
-      fullPath: '/cabinet/'
-      preLoaderRoute: typeof CabinetIndexRouteImport
-      parentRoute: typeof CabinetRoute
     }
     '/admin/': {
       id: '/admin/'
@@ -565,27 +480,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/evaluation/$sessionId'
       preLoaderRoute: typeof EvaluationSessionIdRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/cabinet/sessions': {
-      id: '/cabinet/sessions'
-      path: '/sessions'
-      fullPath: '/cabinet/sessions'
-      preLoaderRoute: typeof CabinetSessionsRouteImport
-      parentRoute: typeof CabinetRoute
-    }
-    '/cabinet/formations': {
-      id: '/cabinet/formations'
-      path: '/formations'
-      fullPath: '/cabinet/formations'
-      preLoaderRoute: typeof CabinetFormationsRouteImport
-      parentRoute: typeof CabinetRoute
-    }
-    '/cabinet/formateurs': {
-      id: '/cabinet/formateurs'
-      path: '/formateurs'
-      fullPath: '/cabinet/formateurs'
-      preLoaderRoute: typeof CabinetFormateursRouteImport
-      parentRoute: typeof CabinetRoute
     }
     '/admin/sessions': {
       id: '/admin/sessions'
@@ -657,13 +551,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDocumentsRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/cabinets': {
-      id: '/admin/cabinets'
-      path: '/cabinets'
-      fullPath: '/admin/cabinets'
-      preLoaderRoute: typeof AdminCabinetsRouteImport
-      parentRoute: typeof AdminRoute
-    }
     '/admin/approbations': {
       id: '/admin/approbations'
       path: '/approbations'
@@ -676,7 +563,6 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminApprobationsRoute: typeof AdminApprobationsRoute
-  AdminCabinetsRoute: typeof AdminCabinetsRoute
   AdminDocumentsRoute: typeof AdminDocumentsRoute
   AdminEmployesRoute: typeof AdminEmployesRoute
   AdminEvaluationsRoute: typeof AdminEvaluationsRoute
@@ -692,7 +578,6 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminApprobationsRoute: AdminApprobationsRoute,
-  AdminCabinetsRoute: AdminCabinetsRoute,
   AdminDocumentsRoute: AdminDocumentsRoute,
   AdminEmployesRoute: AdminEmployesRoute,
   AdminEvaluationsRoute: AdminEvaluationsRoute,
@@ -708,28 +593,10 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
-interface CabinetRouteChildren {
-  CabinetFormateursRoute: typeof CabinetFormateursRoute
-  CabinetFormationsRoute: typeof CabinetFormationsRoute
-  CabinetSessionsRoute: typeof CabinetSessionsRoute
-  CabinetIndexRoute: typeof CabinetIndexRoute
-}
-
-const CabinetRouteChildren: CabinetRouteChildren = {
-  CabinetFormateursRoute: CabinetFormateursRoute,
-  CabinetFormationsRoute: CabinetFormationsRoute,
-  CabinetSessionsRoute: CabinetSessionsRoute,
-  CabinetIndexRoute: CabinetIndexRoute,
-}
-
-const CabinetRouteWithChildren =
-  CabinetRoute._addFileChildren(CabinetRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AProposRoute: AProposRoute,
   AdminRoute: AdminRouteWithChildren,
-  CabinetRoute: CabinetRouteWithChildren,
   CatalogueRoute: CatalogueRoute,
   ConnexionRoute: ConnexionRoute,
   ContactRoute: ContactRoute,

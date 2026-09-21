@@ -1,4 +1,5 @@
 import { api } from "./client";
+import type { SessionRef, UserRef } from "./types";
 
 export type Evaluation = {
   id: string;
@@ -11,9 +12,9 @@ export type Evaluation = {
   recommande: boolean;
   dateEvaluation: string;
   isValidated: boolean;
-  formateur: any;
-  session: any;
-  participant: any;
+  formateur: UserRef;
+  session: SessionRef;
+  participant: UserRef;
   noteObjectifClarte?: number;
   noteUtilite?: number;
   noteDureeRythme?: number;
@@ -59,14 +60,12 @@ export type CreateEvaluationDto = {
 export async function getEvaluations(filters?: {
   formationId?: string;
   formateurId?: string;
-  cabinetId?: string;
   sessionId?: string;
   participantId?: string;
 }): Promise<Evaluation[]> {
   const params = new URLSearchParams();
   if (filters?.formationId) params.set("formationId", filters.formationId);
   if (filters?.formateurId) params.set("formateurId", filters.formateurId);
-  if (filters?.cabinetId) params.set("cabinetId", filters.cabinetId);
   if (filters?.sessionId) params.set("sessionId", filters.sessionId);
   if (filters?.participantId) params.set("participantId", filters.participantId);
   const qs = params.toString();

@@ -41,9 +41,7 @@ function ConnexionPage() {
             ? "/admin"
             : user.role === "formateur"
               ? "/formateur/dashboard"
-              : user.role === "cabinet"
-                ? "/cabinet"
-                : "/catalogue",
+              : "/catalogue",
       });
     }
   }, [isAuthenticated, user]);
@@ -67,8 +65,8 @@ function ConnexionPage() {
     try {
       await login({ email, password });
       toast.success("Connexion réussie");
-    } catch (err: any) {
-      setErrors({ form: err.message || "Identifiants incorrects" });
+    } catch (err) {
+      setErrors({ form: err instanceof Error ? err.message : "Identifiants incorrects" });
       toast.error("Erreur de connexion");
     } finally {
       setLoading(false);

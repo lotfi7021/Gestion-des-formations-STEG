@@ -20,10 +20,16 @@ export const Route = createFileRoute("/admin/")({
 });
 
 function AdminDashboard() {
-  const { data: formations } = useQuery({ queryKey: ["formations"], queryFn: getFormations });
-  const { data: sessions } = useQuery({ queryKey: ["sessions"], queryFn: getSessions });
+  const { data: formations } = useQuery({
+    queryKey: ["formations"],
+    queryFn: () => getFormations(),
+  });
+  const { data: sessions } = useQuery({ queryKey: ["sessions"], queryFn: () => getSessions() });
   const { data: employes } = useQuery({ queryKey: ["employes"], queryFn: getEmployes });
-  const { data: formateurs } = useQuery({ queryKey: ["formateurs"], queryFn: getFormateurs });
+  const { data: formateurs } = useQuery({
+    queryKey: ["formateurs"],
+    queryFn: () => getFormateurs(),
+  });
 
   const sessionsCeMois =
     sessions?.filter((s) => {

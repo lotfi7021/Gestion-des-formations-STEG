@@ -175,7 +175,10 @@ function AdminPaiementsPage() {
               const u = ins.user;
               const d = new Date(s.dateDebut);
               return (
-                <div key={ins.id} className="rounded-xl border border-border bg-card p-4 opacity-80">
+                <div
+                  key={ins.id}
+                  className="rounded-xl border border-border bg-card p-4 opacity-80"
+                >
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
                       <CheckCircle className="h-5 w-5 text-blue-600 shrink-0" />

@@ -101,14 +101,6 @@ export class SeedService implements OnApplicationBootstrap {
         departement: 'Distribution',
         directionText: 'District de Bizerte',
       },
-      {
-        username: 'cabinet',
-        email: 'cabinet@steg.tn',
-        password: '123456',
-        role: UserRole.CABINET,
-        nom: 'Cabinet Habilitation',
-        prenom: 'Conseil',
-      },
     ];
 
     for (const userData of users) {

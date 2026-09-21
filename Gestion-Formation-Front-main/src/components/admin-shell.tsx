@@ -49,7 +49,6 @@ const nav = [
   { to: "/admin/documents", label: "Documents", icon: FileText },
   { to: "/admin/evaluations", label: "Évaluations", icon: Star },
   { to: "/admin/kpi", label: "KPI Formations", icon: BarChart3 },
-  { to: "/admin/cabinets", label: "Cabinets", icon: Building2 },
 ];
 
 function GlobalSearch() {
@@ -71,15 +70,15 @@ function GlobalSearch() {
 
   const { data: formations } = useQuery({
     queryKey: ["search-formations"],
-    queryFn: () => getFormations(undefined, true),
+    queryFn: () => getFormations(true),
   });
   const { data: sessions } = useQuery({
     queryKey: ["search-sessions"],
-    queryFn: () => getSessions(undefined, true),
+    queryFn: () => getSessions(true),
   });
   const { data: formateurs } = useQuery({
     queryKey: ["search-formateurs"],
-    queryFn: () => getFormateurs(undefined, true),
+    queryFn: () => getFormateurs(),
   });
   const { data: employes } = useQuery({
     queryKey: ["search-employes"],
@@ -121,9 +120,6 @@ function GlobalSearch() {
                 >
                   <BookOpen className="h-4 w-4" />
                   <span>{f.titre}</span>
-                  {f.cabinetId && (
-                    <span className="ml-auto text-[10px] text-muted-foreground">Cabinet</span>
-                  )}
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -321,5 +317,3 @@ export function AdminShell({
     </div>
   );
 }
-
-

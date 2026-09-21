@@ -6,6 +6,7 @@ import { Loader2, Check, X, Clock } from "lucide-react";
 import { AdminShell } from "@/components/admin-shell";
 import { api } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
+import type { UserRef } from "@/lib/api/types";
 
 export const Route = createFileRoute("/admin/approbations")({
   component: AdminApprobations,
@@ -20,7 +21,7 @@ function AdminApprobations() {
     error,
   } = useQuery({
     queryKey: ["pending-users"],
-    queryFn: () => api.get<any[]>("/auth/pending-users"),
+    queryFn: () => api.get<UserRef[]>("/auth/pending-users"),
   });
 
   const approveMutation = useMutation({
@@ -78,7 +79,7 @@ function AdminApprobations() {
               </tr>
             </thead>
             <tbody>
-              {pendingUsers.map((u: any) => (
+              {pendingUsers.map((u: UserRef) => (
                 <tr key={u.id} className="border-t border-border hover:bg-secondary/40">
                   <td className="px-4 py-3 font-medium">{u.username}</td>
                   <td className="px-4 py-3 text-muted-foreground">{u.email}</td>

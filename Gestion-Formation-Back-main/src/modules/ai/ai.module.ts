@@ -12,6 +12,8 @@ import { Formation } from '../../entities/formation.entity';
 import { AuthModule } from '../auth/auth.module';
 import { AiService } from './ai.service';
 import { AiController } from './ai.controller';
+import { RagService } from './rag/rag.service';
+import { EmbeddingsService } from './rag/embeddings.service';
 
 @Module({
   imports: [
@@ -27,7 +29,7 @@ import { AiController } from './ai.controller';
     AuthModule,
   ],
   controllers: [AiController],
-  providers: [AiService],
+  providers: [AiService, RagService, EmbeddingsService],
   exports: [AiService],
 })
 export class AiModule {}

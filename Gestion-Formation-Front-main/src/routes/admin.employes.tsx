@@ -74,7 +74,7 @@ function AdminEmployes() {
     mutationFn: () => {
       const { entrepriseText, ...rest } = form;
       const payload = { ...rest, entrepriseText: entrepriseText || undefined };
-      return editingId ? updateEmploye(editingId, payload as any) : createEmploye(payload as any);
+      return editingId ? updateEmploye(editingId, payload) : createEmploye(payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employes"] });
@@ -85,7 +85,7 @@ function AdminEmployes() {
         editingId ? "Employé modifié" : "Employé ajouté — identifiant généré automatiquement",
       );
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err.message || "Erreur lors de l'enregistrement");
     },
   });

@@ -39,8 +39,8 @@ export function SignatureModal({ onSigned }: SignatureModalProps) {
       setSavedSig(imageData);
       onSigned?.();
       setOpen(false);
-    } catch (err: any) {
-      toast.error(err.message || "Erreur lors de l'enregistrement");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de l'enregistrement");
     } finally {
       setLoading(false);
     }

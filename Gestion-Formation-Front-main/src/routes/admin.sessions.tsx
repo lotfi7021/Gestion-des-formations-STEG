@@ -34,7 +34,11 @@ import { API_BASE } from "@/lib/api/client";
 import { getEmployes } from "@/lib/api/employes";
 import { getFormateurs } from "@/lib/api/formateurs";
 import { getParticipants } from "@/lib/api/users";
-import { generateSessionCertificates, getCertificates, type Certificate } from "@/lib/api/certificates";
+import {
+  generateSessionCertificates,
+  getCertificates,
+  type Certificate,
+} from "@/lib/api/certificates";
 import { generateSessionSummary, generateCertificateText } from "@/lib/api/ai";
 import {
   generateConvention,
@@ -116,7 +120,6 @@ function AdminSessions() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [employeSearch, setEmployeSearch] = useState("");
   const [source, setSource] = useState<"employes" | "participants">("participants");
-  const [originFilter, setOriginFilter] = useState<"all" | "platform" | "cabinet">("all");
   const [search, setSearch] = useState("");
 
   // ─── État résumé IA ───────────────────────────────────────────────────────
@@ -136,8 +139,8 @@ function AdminSessions() {
       } else {
         toast.success("Résumé IA généré avec succès");
       }
-    } catch (err: any) {
-      toast.error(err.message || "Erreur lors de la génération du résumé");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de la génération du résumé");
     } finally {
       setSummaryLoadingId(null);
     }
@@ -151,8 +154,16 @@ function AdminSessions() {
   };
 
   const dismissSummary = (sessionId: string) => {
-    setSummaryBySession((prev) => { const n = { ...prev }; delete n[sessionId]; return n; });
-    setSummaryEditById((prev) => { const n = { ...prev }; delete n[sessionId]; return n; });
+    setSummaryBySession((prev) => {
+      const n = { ...prev };
+      delete n[sessionId];
+      return n;
+    });
+    setSummaryEditById((prev) => {
+      const n = { ...prev };
+      delete n[sessionId];
+      return n;
+    });
   };
 
   // ─── État texte de certificat IA ──────────────────────────────────────────
@@ -196,8 +207,8 @@ function AdminSessions() {
       } else {
         toast.success("Texte de certificat généré avec succès");
       }
-    } catch (err: any) {
-      toast.error(err.message || "Erreur lors de la génération");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de la génération");
     } finally {
       setCertTextLoading(false);
     }
@@ -209,25 +220,28 @@ function AdminSessions() {
     }
   };
 
-  const { data: sessions, isLoading } = useQuery({ queryKey: ["sessions"], queryFn: getSessions });
-  const filtered = (sessions || [])
-    .filter((s) => {
-      if (originFilter === "cabinet") return !!(s as any).clonedFromCabinetId;
-      if (originFilter === "platform") return !(s as any).clonedFromCabinetId;
-      return true;
-    })
-    .filter((s) => {
-      if (!search) return true;
-      const q = search.toLowerCase();
-      return (
-        (s.formation?.titre || "").toLowerCase().includes(q) ||
-        (s.lieu || "").toLowerCase().includes(q) ||
-        (s.notes || "").toLowerCase().includes(q)
-      );
-    });
-  const { data: formations } = useQuery({ queryKey: ["formations"], queryFn: getFormations });
+  const { data: sessions, isLoading } = useQuery({
+    queryKey: ["sessions"],
+    queryFn: () => getSessions(),
+  });
+  const filtered = (sessions || []).filter((s) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      (s.formation?.titre || "").toLowerCase().includes(q) ||
+      (s.lieu || "").toLowerCase().includes(q) ||
+      (s.notes || "").toLowerCase().includes(q)
+    );
+  });
+  const { data: formations } = useQuery({
+    queryKey: ["formations"],
+    queryFn: () => getFormations(),
+  });
   const { data: employes } = useQuery({ queryKey: ["employes"], queryFn: getEmployes });
-  const { data: formateurs } = useQuery({ queryKey: ["formateurs"], queryFn: getFormateurs });
+  const { data: formateurs } = useQuery({
+    queryKey: ["formateurs"],
+    queryFn: () => getFormateurs(),
+  });
   const { data: participants } = useQuery({ queryKey: ["participants"], queryFn: getParticipants });
 
   const selectedFormation = formations?.find((f: any) => f.id === form.formationId);
@@ -278,7 +292,9 @@ function AdminSessions() {
       queryClient.invalidateQueries({ queryKey: ["documents-signes"] });
     },
     onError: (err: any) => {
-      toast.error(err.message || "Erreur lors de la génération des certificats");
+      toast.error(
+        err instanceof Error ? err.message : "Erreur lors de la génération des certificats",
+      );
     },
   });
 
@@ -289,7 +305,7 @@ function AdminSessions() {
       toast.success("Convention générée");
       queryClient.invalidateQueries({ queryKey: ["documents-signes"] });
     },
-    onError: (err: any) => toast.error(err.message || "Erreur"),
+    onError: (err: any) => toast.error(err instanceof Error ? err.message : "Erreur"),
   });
 
   const contratMutation = useMutation({
@@ -299,7 +315,7 @@ function AdminSessions() {
       toast.success("Contrat formateur généré");
       queryClient.invalidateQueries({ queryKey: ["documents-signes"] });
     },
-    onError: (err: any) => toast.error(err.message || "Erreur"),
+    onError: (err: any) => toast.error(err instanceof Error ? err.message : "Erreur"),
   });
 
   const emargementMutation = useMutation({
@@ -308,7 +324,7 @@ function AdminSessions() {
       toast.success("Feuille d'émargement générée");
       queryClient.invalidateQueries({ queryKey: ["documents-signes"] });
     },
-    onError: (err: any) => toast.error(err.message || "Erreur"),
+    onError: (err: any) => toast.error(err instanceof Error ? err.message : "Erreur"),
   });
 
   const completeMutation = useMutation({
@@ -318,7 +334,7 @@ function AdminSessions() {
       toast.success("Session marquée comme terminée");
     },
     onError: (err: any) => {
-      toast.error(err.message || "Erreur");
+      toast.error(err instanceof Error ? err.message : "Erreur");
     },
   });
 
@@ -606,19 +622,9 @@ function AdminSessions() {
               className="h-8 rounded-md border border-border bg-background px-3 text-xs outline-none focus:border-primary"
             />
             <span className="text-xs font-medium text-muted-foreground">Origine :</span>
-            {(["all", "platform", "cabinet"] as const).map((o) => (
-              <button
-                key={o}
-                onClick={() => setOriginFilter(o)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  originFilter === o
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                }`}
-              >
-                {o === "all" ? "Tous" : o === "platform" ? "Plateforme" : "Cabinet"}
-              </button>
-            ))}
+            <span className="rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">
+              Plateforme
+            </span>
           </div>
           {filtered?.length === 0 && (
             <div className="py-12 text-center text-muted-foreground">Aucune session planifiée</div>
@@ -637,11 +643,6 @@ function AdminSessions() {
                   <div className="min-w-0">
                     <h3 className="truncate font-display text-xl">
                       {s.formation?.titre || "Formation"}
-                      {s.clonedFromCabinetId && (
-                        <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">
-                          {s.clonedFromCabinetName || "Cabinet"}
-                        </span>
-                      )}
                     </h3>
                     <p className="truncate text-sm text-muted-foreground">
                       {s.formateurs?.map((f: any) => `${f.prenom} ${f.nom}`).join(", ") ||
@@ -944,9 +945,7 @@ function AdminSessions() {
                 value={certTextDialog?.certificateId || ""}
                 onValueChange={(certId) => {
                   const cert = allCertificates?.find((c) => c.id === certId);
-                  const name = cert
-                    ? `${cert.user.prenom} ${cert.user.nom}`
-                    : "";
+                  const name = cert ? `${cert.user.prenom} ${cert.user.nom}` : "";
                   setCertTextDialog((prev) =>
                     prev ? { ...prev, certificateId: certId, participantName: name } : prev,
                   );

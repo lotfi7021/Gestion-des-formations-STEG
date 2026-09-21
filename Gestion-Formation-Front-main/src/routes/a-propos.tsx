@@ -32,8 +32,8 @@ function AboutPage() {
             sécurité industrielle, normes ISO, et développement des compétences de ses agents.
           </p>
           <p>
-            Le centre de formation de Bizerte intervient pour coordonner les sessions et garantir
-            la conformité des habilitations obligatoires.
+            Le centre de formation de Bizerte intervient pour coordonner les sessions et garantir la
+            conformité des habilitations obligatoires.
           </p>
         </div>
         <div className="mt-16 grid gap-6 md:grid-cols-3">

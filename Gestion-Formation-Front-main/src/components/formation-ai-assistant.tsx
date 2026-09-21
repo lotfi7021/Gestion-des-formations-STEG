@@ -71,9 +71,7 @@ function MarkdownText({ text }: { text: string }) {
         }
 
         // Ligne normale
-        return (
-          <p key={i} dangerouslySetInnerHTML={{ __html: inlineBold(line) }} />
-        );
+        return <p key={i} dangerouslySetInnerHTML={{ __html: inlineBold(line) }} />;
       })}
     </div>
   );
@@ -90,10 +88,7 @@ interface FormationAiAssistantProps {
   formationTitre: string;
 }
 
-export function FormationAiAssistant({
-  formationId,
-  formationTitre,
-}: FormationAiAssistantProps) {
+export function FormationAiAssistant({ formationId, formationTitre }: FormationAiAssistantProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("summary");
 
@@ -110,8 +105,10 @@ export function FormationAiAssistant({
       const res = await getFormationAiSummary(formationId);
       setSummary(res.text);
       setSummaryFallback(res.isFallback);
-    } catch (err: any) {
-      setSummaryError(err.message || "Erreur lors de la génération du résumé.");
+    } catch (err) {
+      setSummaryError(
+        err instanceof Error ? err.message : "Erreur lors de la génération du résumé.",
+      );
     } finally {
       setSummaryLoading(false);
     }
@@ -143,16 +140,13 @@ export function FormationAiAssistant({
 
     try {
       const res = await askFormationQuestion(formationId, q);
-      setMessages((prev) => [
-        ...prev,
-        { role: "bot", text: res.text, isFallback: res.isFallback },
-      ]);
-    } catch (err: any) {
+      setMessages((prev) => [...prev, { role: "bot", text: res.text, isFallback: res.isFallback }]);
+    } catch (err) {
       setMessages((prev) => [
         ...prev,
         {
           role: "bot",
-          text: err.message || "Une erreur est survenue. Veuillez réessayer.",
+          text: err instanceof Error ? err.message : "Une erreur est survenue. Veuillez réessayer.",
           isFallback: true,
         },
       ]);
@@ -227,7 +221,8 @@ export function FormationAiAssistant({
                 <div className="rounded-xl border border-dashed border-border bg-secondary/30 p-6 text-center">
                   <Sparkles className="mx-auto h-8 w-8 text-muted-foreground/40 mb-3" />
                   <p className="text-sm text-muted-foreground mb-4">
-                    Générez un résumé intelligent de cette formation à partir des documents de cours partagés par le formateur.
+                    Générez un résumé intelligent de cette formation à partir des documents de cours
+                    partagés par le formateur.
                   </p>
                   <Button onClick={handleGenerateSummary} className="gap-2">
                     <Sparkles className="h-4 w-4" />

@@ -39,6 +39,10 @@ export async function uploadSessionDocument(
   return res.json();
 }
 
+export async function deleteSessionDocument(sessionId: string, docId: string): Promise<void> {
+  return api.delete(`/sessions/${sessionId}/documents/${docId}`);
+}
+
 export function getDocumentDownloadUrl(sessionId: string, docId: string): string {
   const token = localStorage.getItem("access_token");
   return `${API_BASE}/sessions/${sessionId}/documents/${docId}/download?token=${token}`;

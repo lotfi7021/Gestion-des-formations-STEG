@@ -92,8 +92,14 @@ function AdminEvaluationsPage() {
   const [formationFilter, setFormationFilter] = useState("");
   const [formateurFilter, setFormateurFilter] = useState("");
   const [selectedEval, setSelectedEval] = useState<any>(null);
-  const { data: formations } = useQuery({ queryKey: ["formations"], queryFn: getFormations });
-  const { data: formateurs } = useQuery({ queryKey: ["formateurs"], queryFn: getFormateurs });
+  const { data: formations } = useQuery({
+    queryKey: ["formations"],
+    queryFn: () => getFormations(),
+  });
+  const { data: formateurs } = useQuery({
+    queryKey: ["formateurs"],
+    queryFn: () => getFormateurs(),
+  });
 
   const { data: evaluations, isLoading } = useQuery({
     queryKey: ["evaluations", formationFilter, formateurFilter],
