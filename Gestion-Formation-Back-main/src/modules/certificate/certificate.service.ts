@@ -158,24 +158,15 @@ export class CertificateService {
   async generateForSession(sessionId: string, adminId: string): Promise<Certificate[]> {
     const session = await this.sessionRepository.findOne({
       where: { id: sessionId },
-      relations: { formation: true, participants: true, formateurs: true, employes: true },
+      relations: { formation: true, participants: true, formateurs: true },
     });
     if (!session) throw new NotFoundException('Session introuvable');
     if (!session.isCompleted)
       throw new BadRequestException('La session doit être marquée comme terminée');
 
     const formation = session.formation;
-    let participants = session.participants || [];
-
-    if (session.employes?.length) {
-      const allUsers = await this.userRepository.find({ where: { role: 'employe' as any } });
-      for (const emp of session.employes) {
-        const user = allUsers.find((u) => u.email === emp.email);
-        if (user && !participants.some((p) => p.id === user.id)) {
-          participants.push(user);
-        }
-      }
-    }
+    // Tous les inscrits sont des Users (employés STEG et participants)
+    const participants = session.participants || [];
 
     if (participants.length === 0)
       throw new BadRequestException('Aucun participant dans cette session');

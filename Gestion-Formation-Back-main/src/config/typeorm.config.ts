@@ -7,7 +7,7 @@ import { Presence } from '../entities/presence.entity';
 import { Certificate } from '../entities/certificate.entity';
 import { Notification } from '../entities/notification.entity';
 import { Evaluation } from '../entities/evaluation.entity';
-import { Employe } from '../entities/employe.entity';
+
 import { Inscription } from '../entities/inscription.entity';
 import { SessionDocument } from '../entities/session-document.entity';
 import { Signature } from '../entities/signature.entity';
@@ -29,7 +29,6 @@ export const typeOrmConfig: TypeOrmModuleOptions = {
     Certificate,
     Notification,
     Evaluation,
-    Employe,
     Inscription,
     SessionDocument,
     Signature,

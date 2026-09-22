@@ -13,7 +13,6 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { Formation } from './formation.entity';
 import { User } from './user.entity';
-import { Employe } from './employe.entity';
 import { Presence } from './presence.entity';
 import { Certificate } from './certificate.entity';
 import { Evaluation } from './evaluation.entity';
@@ -85,14 +84,6 @@ export class Session {
     inverseJoinColumn: { name: 'user_id', referencedColumnName: 'id' },
   })
   participants: User[];
-
-  @ManyToMany(() => Employe)
-  @JoinTable({
-    name: 'session_employes',
-    joinColumn: { name: 'session_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'employe_id', referencedColumnName: 'id' },
-  })
-  employes: Employe[];
 
   @ManyToMany(() => User, (user) => user.sessionsAsFormateur)
   @JoinTable({

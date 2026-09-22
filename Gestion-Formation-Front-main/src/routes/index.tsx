@@ -246,24 +246,8 @@ function Index() {
         ) : (
           <div className="mt-10 grid gap-6 md:grid-cols-3">
             {featured.map((f, i) => {
-              const Wrapper = isAuthenticated ? Link : "div";
-              const wrapperProps = isAuthenticated
-                ? {
-                    to: "/formations/$id" as const,
-                    params: { id: f.id },
-                    className:
-                      "reveal group flex flex-col rounded-xl border border-border bg-card p-6 transition-all duration-300 hover:-translate-y-1.5 hover:border-primary/40 hover:shadow-[var(--shadow-lift)]",
-                  }
-                : {
-                    className:
-                      "reveal flex flex-col rounded-xl border border-border bg-card p-6 opacity-80",
-                  };
-              return (
-                <Wrapper
-                  key={f.id}
-                  {...(wrapperProps as any)}
-                  style={{ "--reveal-delay": `${i * 100}ms` } as React.CSSProperties}
-                >
+              const cardInner = (
+                <>
                   {f.imageUrl ? (
                     <div className="relative mb-4 aspect-video overflow-hidden rounded-lg">
                       <img
@@ -296,7 +280,31 @@ function Index() {
                       {f.tarif ? `${f.tarif} DT` : "Sur devis"}
                     </span>
                   </div>
-                </Wrapper>
+                </>
+              );
+
+              const cardClass = isAuthenticated
+                ? "reveal group flex flex-col rounded-xl border border-border bg-card p-6 transition-all duration-300 hover:-translate-y-1.5 hover:border-primary/40 hover:shadow-[var(--shadow-lift)]"
+                : "reveal flex flex-col rounded-xl border border-border bg-card p-6 opacity-80";
+
+              return isAuthenticated ? (
+                <Link
+                  key={f.id}
+                  to="/formations/$id"
+                  params={{ id: f.id }}
+                  className={cardClass}
+                  style={{ "--reveal-delay": `${i * 100}ms` } as React.CSSProperties}
+                >
+                  {cardInner}
+                </Link>
+              ) : (
+                <div
+                  key={f.id}
+                  className={cardClass}
+                  style={{ "--reveal-delay": `${i * 100}ms` } as React.CSSProperties}
+                >
+                  {cardInner}
+                </div>
               );
             })}
           </div>

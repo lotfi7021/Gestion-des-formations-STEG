@@ -24,6 +24,7 @@ import {
   Info,
   CalendarDays,
   GraduationCap,
+  type LucideIcon,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -72,7 +73,27 @@ const formateurFieldFallbacks: Record<string, string[]> = {
   noteCapaciteReponse: [],
 };
 
-function getFieldValue(e: any, field: string, fallbacks: Record<string, string[]>): number | null {
+type SessionLike = {
+  formation?: { id?: string } | null;
+  isCancelled?: boolean;
+  capaciteMax?: number | null;
+  nombreParticipants?: number;
+  formateurs?: { prenom?: string; nom?: string }[];
+};
+
+type EvalLike = Record<string, unknown> & {
+  participant?: { prenom?: string; nom?: string } | null;
+  formateur?: { prenom?: string; nom?: string } | null;
+  note?: number | null;
+  noteSatisfactionGlobale?: number | null;
+  session?: { id?: string } | null;
+};
+
+function getFieldValue(
+  e: Record<string, unknown>,
+  field: string,
+  fallbacks: Record<string, string[]>,
+): number | null {
   if (e[field] != null && !isNaN(Number(e[field]))) return Number(e[field]);
   for (const fb of fallbacks[field] ?? []) {
     if (e[fb] != null && !isNaN(Number(e[fb]))) return Number(e[fb]);
@@ -90,7 +111,7 @@ function toPct(val: number, max: number) {
   return Math.round((val / max) * 100);
 }
 
-function safeNum(v: any, fallback = 0) {
+function safeNum(v: unknown, fallback = 0) {
   const n = Number(v);
   return isNaN(n) ? fallback : n;
 }
@@ -154,7 +175,7 @@ function KpiCard({
   value: number | string;
   unit?: string;
   target: number;
-  icon: any;
+  icon: LucideIcon;
   subtitle?: string;
   formulaRows?: { label: string; value: string | number }[];
   detailTitle?: string;
@@ -263,8 +284,31 @@ function ProgressRing({
   );
 }
 
-function exportToExcel(sessionsWithData: any[], currentYear: number) {
-  const rows: any[] = [];
+function exportToExcel(
+  sessionsWithData: {
+    sessionId: string;
+    formationTitle: string;
+    formateurName: string;
+    dateDebut: Date;
+    dateFin: Date;
+    nbPrevus: number;
+    nbReels: number;
+    evaluations: EvalLike[];
+    scoreConditions: number;
+    scoreFormateur: number;
+    scoreFormation: number;
+    tauxEvaluation: number;
+    nbNotesSup4: number;
+    tauxParticipation: number;
+    tauxSatisfaction: number;
+    tauxConditions: number;
+    tauxFormateur: number;
+    tauxReussite: number;
+    nbReussis: number;
+  }[],
+  currentYear: number,
+) {
+  const rows: Record<string, unknown>[] = [];
   let n = 0;
   for (const s of sessionsWithData) {
     for (const ev of s.evaluations) {
@@ -285,8 +329,12 @@ function exportToExcel(sessionsWithData: any[], currentYear: number) {
         "noteCapaciteReponse",
       ];
 
-      const cabVals = cabFields.map((f) => (ev as any)[f]).filter((v: any) => v != null);
-      const forVals = forFields.map((f) => (ev as any)[f]).filter((v: any) => v != null);
+      const cabVals = cabFields
+        .map((f) => (ev as Record<string, unknown>)[f])
+        .filter((v): v is number => typeof v === "number");
+      const forVals = forFields
+        .map((f) => (ev as Record<string, unknown>)[f])
+        .filter((v): v is number => typeof v === "number");
 
       const scoreConditionsPart = cabVals.length ? avg(cabVals) : 0;
       const scoreFormateurPart = forVals.length ? avg(forVals) : 0;
@@ -343,8 +391,14 @@ function exportToExcel(sessionsWithData: any[], currentYear: number) {
         ? "S1"
         : "S2"
       : "S1") + ` ${currentYear}`;
-  const totalPrev = sessionsWithData.reduce((s: number, x: any) => s + x.nbPrevus, 0);
-  const totalReel = sessionsWithData.reduce((s: number, x: any) => s + x.nbReels, 0);
+  const totalPrev = sessionsWithData.reduce(
+    (s: number, x) => s + (x as unknown as Record<string, number>).nbPrevus,
+    0,
+  );
+  const totalReel = sessionsWithData.reduce(
+    (s: number, x) => s + (x as unknown as Record<string, number>).nbReels,
+    0,
+  );
   const tauxPartSem = totalPrev > 0 ? Math.round((totalReel / totalPrev) * 100) : 0;
 
   for (const row of rows) {
@@ -355,8 +409,14 @@ function exportToExcel(sessionsWithData: any[], currentYear: number) {
 
   if (rows.length > 0) {
     const lastRow = rows[rows.length - 1];
-    const nbReussis = sessionsWithData.reduce((s: number, x: any) => s + x.nbReussis, 0);
-    const totalReelSum = sessionsWithData.reduce((s: number, x: any) => s + x.nbReels, 0);
+    const nbReussis = sessionsWithData.reduce(
+      (s: number, x) => s + (x as unknown as Record<string, number>).nbReussis,
+      0,
+    );
+    const totalReelSum = sessionsWithData.reduce(
+      (s: number, x) => s + (x as unknown as Record<string, number>).nbReels,
+      0,
+    );
     lastRow["Nb Participants réussis (≥13)"] = nbReussis;
     lastRow["Taux de réussite"] =
       totalReelSum > 0 ? `${Math.round((nbReussis / totalReelSum) * 100)}%` : "—";
@@ -379,11 +439,14 @@ function exportToExcel(sessionsWithData: any[], currentYear: number) {
     { Indicateur: "Taux de réalisation du plan", Valeur: "", Cible: "≥ 95%", Statut: "" },
     {
       Indicateur: "Taux d'évaluation des conditions (MSC)",
-      Valeur: `${Math.round(sessionsWithData.length ? sessionsWithData.reduce((s: number, x: any) => s + x.tauxConditions, 0) / sessionsWithData.length : 0)}%`,
+      Valeur: `${Math.round(sessionsWithData.length ? sessionsWithData.reduce((s: number, x) => s + (x as unknown as Record<string, number>).tauxConditions, 0) / sessionsWithData.length : 0)}%`,
       Cible: "≥ 70%",
       Statut:
         sessionsWithData.length > 0
-          ? sessionsWithData.reduce((s: number, x: any) => s + x.tauxConditions, 0) /
+          ? sessionsWithData.reduce(
+              (s: number, x) => s + (x as unknown as Record<string, number>).tauxConditions,
+              0,
+            ) /
               sessionsWithData.length >=
             70
             ? "Atteint"
@@ -392,13 +455,13 @@ function exportToExcel(sessionsWithData: any[], currentYear: number) {
     },
     {
       Indicateur: "Taux d'évaluation du formateur (MSF-formateur)",
-      Valeur: `${Math.round(sessionsWithData.length ? sessionsWithData.reduce((s: number, x: any) => s + x.tauxFormateur, 0) / sessionsWithData.length : 0)}%`,
+      Valeur: `${Math.round(sessionsWithData.length ? sessionsWithData.reduce((s: number, x) => s + (x as unknown as Record<string, number>).tauxFormateur, 0) / sessionsWithData.length : 0)}%`,
       Cible: "≥ 70%",
       Statut: "",
     },
     {
       Indicateur: "Taux d'évaluation de la formation (MSF)",
-      Valeur: `${Math.round(sessionsWithData.length ? sessionsWithData.reduce((s: number, x: any) => s + x.tauxEvaluation, 0) / sessionsWithData.length : 0)}%`,
+      Valeur: `${Math.round(sessionsWithData.length ? sessionsWithData.reduce((s: number, x) => s + (x as unknown as Record<string, number>).tauxEvaluation, 0) / sessionsWithData.length : 0)}%`,
       Cible: "≥ 70%",
       Statut: "",
     },
@@ -410,13 +473,13 @@ function exportToExcel(sessionsWithData: any[], currentYear: number) {
     },
     {
       Indicateur: "Taux de réussite (MSR)",
-      Valeur: `${totalReel > 0 ? Math.round((sessionsWithData.reduce((s: number, x: any) => s + x.nbReussis, 0) / totalReel) * 100) : 0}%`,
+      Valeur: `${totalReel > 0 ? Math.round((sessionsWithData.reduce((s: number, x) => s + (x as unknown as Record<string, number>).nbReussis, 0) / totalReel) * 100) : 0}%`,
       Cible: "≥ 70%",
       Statut: "",
     },
     {
       Indicateur: "Taux de satisfaction (MSS)",
-      Valeur: `${Math.round(sessionsWithData.length ? sessionsWithData.reduce((s: number, x: any) => s + x.tauxSatisfaction, 0) / sessionsWithData.length : 0)}%`,
+      Valeur: `${Math.round(sessionsWithData.length ? sessionsWithData.reduce((s: number, x) => s + (x as unknown as Record<string, number>).tauxSatisfaction, 0) / sessionsWithData.length : 0)}%`,
       Cible: "≥ 70%",
       Statut: "",
     },
@@ -430,7 +493,33 @@ function exportToExcel(sessionsWithData: any[], currentYear: number) {
   XLSX.writeFile(wb, `KPI_Formations_${currentYear}.xlsx`);
 }
 
-function SemesterCard({ sem }: { sem: any }) {
+type SemesterData = {
+  label: string;
+  sessions: {
+    sessionId: string;
+    formationTitle: string;
+    dateDebut: Date;
+    dateFin: Date;
+    formateurName: string;
+    nbPrevus: number;
+    nbReels: number;
+    tauxEvaluation: number;
+    tauxConditions: number;
+    tauxFormateur: number;
+    tauxParticipation: number;
+    tauxSatisfaction: number;
+    tauxReussite: number;
+  }[];
+  msc: number;
+  msf: number;
+  msfFormateur: number;
+  msp: number;
+  mss: number;
+  msr: number;
+  [key: string]: unknown;
+};
+
+function SemesterCard({ sem }: { sem: SemesterData }) {
   const [semOpen, setSemOpen] = useState(false);
   return (
     <div className="rounded-xl border border-border bg-card p-6">
@@ -541,7 +630,7 @@ function SemesterCard({ sem }: { sem: any }) {
                 </tr>
               </thead>
               <tbody>
-                {sem.sessions.map((s: any) => (
+                {sem.sessions.map((s) => (
                   <tr key={s.sessionId} className="border-b border-border/50">
                     <td className="py-1.5 pr-2 font-medium">{s.formationTitle}</td>
                     <td className="py-1.5 tabular-nums">{Math.round(s.tauxConditions)}%</td>
@@ -587,8 +676,22 @@ function GrilleCard({
   sessionMap,
 }: {
   type: "formateur" | "conditions" | "formation";
-  sessionsWithData: any[];
-  sessionMap: Map<string, any>;
+  sessionsWithData: {
+    sessionId: string;
+    formationTitle: string;
+    evaluations: EvalLike[];
+    scoreFormation: number;
+    tauxEvaluation: number;
+    nbNotesSup4: number;
+    tauxParticipation: number;
+    tauxSatisfaction: number;
+    scoreConditions: number;
+    tauxConditions: number;
+    scoreFormateur: number;
+    tauxFormateur: number;
+    [key: string]: unknown;
+  }[];
+  sessionMap: Map<string, SessionLike>;
 }) {
   const [interpOpen, setInterpOpen] = useState(false);
   const withEval = sessionsWithData.filter((s) => s.evaluations.length > 0);
@@ -706,7 +809,7 @@ function GrilleCard({
               )}
             </div>
             <div className="space-y-2">
-              {sessionsOfType.map((s: any) => {
+              {sessionsOfType.map((s) => {
                 const val =
                   (type === "formateur"
                     ? s.tauxFormateur
@@ -830,7 +933,7 @@ function AdminKPIPage() {
   const sessionMap = new Map((sessions ?? []).map((s) => [s.id, s]));
   const formationMap = new Map((formations ?? []).map((f) => [f.id, f]));
 
-  const evalsBySession = new Map<string, any[]>();
+  const evalsBySession = new Map<string, EvalLike[]>();
   for (const ev of evaluations ?? []) {
     const list = evalsBySession.get(ev.session?.id) ?? [];
     list.push(ev);
@@ -845,7 +948,7 @@ function AdminKPIPage() {
     dateFin: Date;
     nbPrevus: number;
     nbReels: number;
-    evaluations: any[];
+    evaluations: EvalLike[];
     scoreConditions: number;
     scoreFormateur: number;
     scoreFormation: number;
@@ -867,22 +970,22 @@ function AdminKPIPage() {
     const nbReels = session.nombreParticipants ?? sessionEvals.length;
 
     const conditionsScores = sessionEvals
-      .map((e: any) => {
+      .map((e: EvalLike) => {
         const vals = cabineFields
           .map((f) => getFieldValue(e, f, conditionsFieldFallbacks))
           .filter((v) => v != null);
         return vals.length ? avg(vals) : null;
       })
-      .filter((v: any) => v != null);
+      .filter((v): v is number | null => v != null);
 
     const formateurScores = sessionEvals
-      .map((e: any) => {
+      .map((e: EvalLike) => {
         const vals = formateurFields
           .map((f) => getFieldValue(e, f, formateurFieldFallbacks))
           .filter((v) => v != null);
         return vals.length ? avg(vals) : null;
       })
-      .filter((v: any) => v != null);
+      .filter((v): v is number | null => v != null);
 
     const scoreConditions = conditionsScores.length ? avg(conditionsScores) : 0;
     const scoreFormateur = formateurScores.length ? avg(formateurScores) : 0;
@@ -896,12 +999,12 @@ function AdminKPIPage() {
     const tauxFormateur = toPct(scoreFormateur, 4);
 
     const nbNotesSup4 = sessionEvals.filter(
-      (e: any) => (e.noteSatisfactionGlobale ?? e.note ?? 0) >= 4,
+      (e: EvalLike) => (e.noteSatisfactionGlobale ?? e.note ?? 0) >= 4,
     ).length;
     const tauxSatisfaction = nbReels > 0 ? Math.round((nbNotesSup4 / nbReels) * 100) : 0;
     const tauxParticipation = nbPrevus > 0 ? Math.round((nbReels / nbPrevus) * 100) : 100;
 
-    const nbReussis = sessionEvals.filter((e: any) => {
+    const nbReussis = sessionEvals.filter((e: EvalLike) => {
       const s = e.noteSatisfactionGlobale ?? e.note ?? 0;
       const pct = toPct(s, 4);
       return pct >= 60;

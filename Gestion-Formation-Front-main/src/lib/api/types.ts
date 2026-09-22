@@ -18,6 +18,7 @@ export type FormationRef = {
   dureeEnJours?: number | null;
   capaciteMax?: number | null;
   imageUrl?: string | null;
+  supportsFormation?: { nom: string; url: string; type: string; sessionId?: string }[];
 };
 
 export type UserRef = {
@@ -33,17 +34,8 @@ export type UserRef = {
   identifiant?: string | null;
   isActive?: boolean;
   avatarUrl?: string | null;
-};
-
-export type EmployeRef = {
-  id: string;
-  nom: string;
-  prenom: string;
-  email: string;
-  identifiant?: string | null;
-  poste?: string | null;
-  departement?: string | null;
-  directionText?: string | null;
+  username?: string | null;
+  createdAt?: string;
 };
 
 export type SessionRef = {
@@ -56,8 +48,8 @@ export type SessionRef = {
   isCompleted?: boolean;
   isCancelled?: boolean;
   formation?: FormationRef;
-  /** Relations présentes uniquement quand le backend les peuple. */
+  /** Relations présentes uniquement quand le backend les peuple.
+   *  Les employés STEG font partie des participants (users role=employe). */
   participants?: UserRef[];
-  employes?: EmployeRef[];
   formateurs?: UserRef[];
 };

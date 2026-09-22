@@ -12,7 +12,6 @@ import { Session } from './session.entity';
 
 export enum DocumentType {
   CONVENTION_FORMATION = 'convention_formation',
-  FEUILLE_EMARGEMENT = 'feuille_emargement',
   CONTRAT_FORMATEUR = 'contrat_formateur',
   CERTIFICAT = 'certificat',
 }

@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { ProtectedRoute } from "@/components/protected-route";
 import { PageShell } from "@/components/page-shell";
-import { getMySessions } from "@/lib/api/sessions";
+import { getMySessions, type Session } from "@/lib/api/sessions";
 import { getFormation } from "@/lib/api/formations";
 import { API_URL } from "@/lib/api/client";
 import { DayPicker } from "react-day-picker";
@@ -38,7 +38,7 @@ function FormateurCalendrier() {
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
-  const [selectedSession, setSelectedSession] = useState<any | null>(null);
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const { data: selectedFormation } = useQuery({
     queryKey: ["formation", selectedSession?.formation?.id],
     queryFn: () => getFormation(selectedSession!.formation!.id),
@@ -47,7 +47,7 @@ function FormateurCalendrier() {
 
   const sessionDays = useMemo(() => {
     if (!sessions) return [];
-    const days = sessions.map((s: any) => {
+    const days = sessions.map((s: Session) => {
       const d = new Date(s.dateDebut);
       return new Date(d.getFullYear(), d.getMonth(), d.getDate());
     });
@@ -57,7 +57,7 @@ function FormateurCalendrier() {
   const sessionsForSelectedDate = useMemo(() => {
     if (!sessions || !selectedDate) return [];
     return sessions
-      .filter((s: any) => {
+      .filter((s: Session) => {
         const sd = new Date(s.dateDebut);
         return (
           sd.getFullYear() === selectedDate.getFullYear() &&
@@ -65,15 +65,21 @@ function FormateurCalendrier() {
           sd.getDate() === selectedDate.getDate()
         );
       })
-      .sort((a: any, b: any) => new Date(a.dateDebut).getTime() - new Date(b.dateDebut).getTime());
+      .sort(
+        (a: Session, b: Session) =>
+          new Date(a.dateDebut).getTime() - new Date(b.dateDebut).getTime(),
+      );
   }, [sessions, selectedDate]);
 
   const upcomingSessions = useMemo(() => {
     if (!sessions) return [];
     const now = new Date();
     return sessions
-      .filter((s: any) => new Date(s.dateDebut) > now && !s.isCancelled)
-      .sort((a: any, b: any) => new Date(a.dateDebut).getTime() - new Date(b.dateDebut).getTime());
+      .filter((s: Session) => new Date(s.dateDebut) > now && !s.isCancelled)
+      .sort(
+        (a: Session, b: Session) =>
+          new Date(a.dateDebut).getTime() - new Date(b.dateDebut).getTime(),
+      );
   }, [sessions]);
 
   const nextSession = upcomingSessions[0];
@@ -199,7 +205,7 @@ function FormateurCalendrier() {
                   </div>
                 )}
 
-                {sessionsForSelectedDate.map((s: any) => {
+                {sessionsForSelectedDate.map((s: Session) => {
                   const isUpcoming = new Date(s.dateDebut) > new Date();
                   const statusClass = s.isCancelled
                     ? "border-destructive/30 bg-destructive/5"
@@ -345,13 +351,13 @@ function FormateurCalendrier() {
                       </div>
                     )}
 
-                    {f?.supportsFormation?.length > 0 && (
+                    {(f?.supportsFormation?.length ?? 0) > 0 && (
                       <div>
                         <h4 className="mb-1 text-sm font-medium text-muted-foreground">
                           Fichiers de la formation
                         </h4>
                         <div className="space-y-1">
-                          {f.supportsFormation.map((file: any, i: number) => (
+                          {f.supportsFormation!.map((file, i: number) => (
                             <a
                               key={i}
                               href={`${API_URL}${file.url}`}

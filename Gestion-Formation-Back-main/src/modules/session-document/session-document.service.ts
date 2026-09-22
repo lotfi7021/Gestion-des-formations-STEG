@@ -6,7 +6,6 @@ import * as fs from 'fs';
 import { SessionDocument } from '../../entities/session-document.entity';
 import { Session } from '../../entities/session.entity';
 import { User } from '../../entities/user.entity';
-import { Employe } from '../../entities/employe.entity';
 
 @Injectable()
 export class SessionDocumentService {
@@ -17,8 +16,6 @@ export class SessionDocumentService {
     private readonly sessionRepository: Repository<Session>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(Employe)
-    private readonly employeRepository: Repository<Employe>,
   ) {}
 
   async upload(
@@ -58,11 +55,8 @@ export class SessionDocumentService {
 
     const isFormateur = session.formateurs.some((f) => f.id === userId);
     const isParticipant = session.participants.some((p) => p.id === userId);
-    const isEmploye = await this.employeRepository.findOne({
-      where: { id: userId },
-    });
 
-    if (!isFormateur && !isParticipant && !isEmploye) {
+    if (!isFormateur && !isParticipant) {
       throw new ForbiddenException('Vous devez être inscrit à cette session pour voir les documents');
     }
 

@@ -49,11 +49,11 @@ function FormationPage() {
 
   const enrollMutation = useMutation({
     mutationFn: (sessionId: string) => enrollInSession(sessionId),
-    onSuccess: (data: any) => {
+    onSuccess: () => {
       toast.success("Inscription soumise !");
       queryClient.invalidateQueries({ queryKey: ["formation", id] });
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err.message || "Erreur lors de l'inscription");
     },
   });
@@ -152,7 +152,7 @@ function FormationPage() {
             {sessions.map((s) => {
               const formateur = s.formateurs?.[0];
               const enrolled = s.participants?.some((p: { id: string }) => p.id === user?.id);
-              const count = (s.participants?.length || 0) + (s.employes?.length || 0);
+              const count = s.participants?.length || 0;
               const maxCap = s.capaciteMax || formation.capaciteMax;
               const full = maxCap ? count >= maxCap : false;
               const d = new Date(s.dateDebut);

@@ -1,10 +1,16 @@
-import { IsString, IsEmail, IsOptional, IsUUID, Matches } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
 
-export class CreateEmployeDto {
+/**
+ * Création d'un participant / employé STEG (compte User role=employe|participant).
+ * Les champs STEG (poste, département, direction) sont portés par l'entité User.
+ */
+export class CreateParticipantDto {
   @IsString()
+  @MaxLength(255)
   nom: string;
 
   @IsString()
+  @MaxLength(255)
   prenom: string;
 
   @IsEmail()
@@ -12,7 +18,6 @@ export class CreateEmployeDto {
 
   @IsOptional()
   @IsString()
-  @Matches(/^(\+216)?\d{8}$/, { message: 'Numéro invalide (ex: +216XXXXXXXX)' })
   telephone?: string;
 
   @IsOptional()
@@ -30,8 +35,4 @@ export class CreateEmployeDto {
   @IsOptional()
   @IsString()
   dateEmbauche?: string;
-
-  @IsOptional()
-  @IsUUID()
-  entrepriseId?: string;
 }

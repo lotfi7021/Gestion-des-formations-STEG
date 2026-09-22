@@ -204,7 +204,7 @@ function AdminDashboard() {
                 <tr key={s.id} className="border-t border-border">
                   <td className="px-4 py-3 font-medium">{s.formation?.titre || "Formation"}</td>
                   <td className="px-4 py-3 text-muted-foreground">
-                    {s.formateurs?.map((f: any) => `${f.prenom} ${f.nom}`).join(", ") || "—"}
+                    {s.formateurs?.map((f) => `${f.prenom} ${f.nom}`).join(", ") || "—"}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {new Date(s.dateDebut).toLocaleDateString("fr-FR")}

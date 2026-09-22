@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/auth-context";
 import { API_URL, API_BASE } from "@/lib/api/client";
+import type { Session } from "@/lib/api/sessions";
 import { getMySessions } from "@/lib/api/sessions";
 import { getMyInscriptions } from "@/lib/api/inscriptions";
 import { getSessionDocuments, type SessionDocument } from "@/lib/api/session-documents";
@@ -182,7 +183,7 @@ function MesFormationsPage() {
           ) : sessions && sessions.length > 0 ? (
             <div className="mt-8 space-y-4">
               <h2 className="font-display text-xl">Inscriptions confirmées</h2>
-              {sessions.map((s: any) => {
+              {sessions.map((s: Session) => {
                 const d = new Date(s.dateDebut);
                 return <SessionCard key={s.id} session={s} />;
               })}
@@ -208,9 +209,8 @@ function MesFormationsPage() {
   );
 }
 
-function SessionCard({ session }: { session: any }) {
+function SessionCard({ session }: { session: Session }) {
   const [expanded, setExpanded] = useState(false);
-  const [certExpanded, setCertExpanded] = useState(false);
   const d = new Date(session.dateDebut);
   const token = localStorage.getItem("access_token");
 
@@ -225,7 +225,8 @@ function SessionCard({ session }: { session: any }) {
     queryFn: getMyCertificates,
   });
 
-  const sessionCerts = (allCerts || []).filter((c: Certificate) => c.session?.id === session.id);
+  // Un seul certificat par session (garanti côté backend, on prend le premier).
+  const cert = (allCerts || []).find((c: Certificate) => c.session?.id === session.id);
 
   return (
     <div className="rounded-xl border border-border bg-card p-6">
@@ -257,7 +258,7 @@ function SessionCard({ session }: { session: any }) {
                 {d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
               </span>
               {session.lieu && <span>📍 {session.lieu}</span>}
-              {session.formateurs?.map((f: any) => (
+              {session.formateurs?.map((f) => (
                 <span key={f.id}>
                   👤 {f.prenom} {f.nom}
                 </span>
@@ -266,19 +267,14 @@ function SessionCard({ session }: { session: any }) {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {sessionCerts.length > 0 && !sessionCerts[0].certificatUrl ? null : (
-            <>
-              {sessionCerts.map((cert: Certificate) => (
-                <a
-                  key={cert.id}
-                  href={getCertificateDownloadUrl(cert.id)}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100"
-                >
-                  <Award className="h-4 w-4" />
-                  Certificat
-                </a>
-              ))}
-            </>
+          {cert?.certificatUrl && (
+            <a
+              href={getCertificateDownloadUrl(cert.id)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100"
+            >
+              <Award className="h-4 w-4" />
+              Certificat
+            </a>
           )}
           <Button variant="outline" size="sm" className="gap-1.5" asChild>
             <Link to="/evaluation/$sessionId" params={{ sessionId: session.id }}>
@@ -326,35 +322,24 @@ function SessionCard({ session }: { session: any }) {
         </div>
       )}
 
-      {sessionCerts.length > 0 && (
-        <div className="mt-3">
-          <button
-            onClick={() => setCertExpanded(!certExpanded)}
-            className="flex w-full items-center justify-between rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 hover:bg-amber-100"
+      {cert && (
+        <div className="mt-3 flex items-center gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+          <Award className="h-4 w-4 shrink-0 text-amber-600" />
+          <span className="flex-1 truncate">
+            Certificat — {cert.formation?.titre}
+            {cert.numeroCertificat && (
+              <span className="ml-2 text-xs text-muted-foreground">N° {cert.numeroCertificat}</span>
+            )}
+          </span>
+          <span className="shrink-0 text-xs text-muted-foreground">
+            Émis le {new Date(cert.dateEmission).toLocaleDateString("fr-FR")}
+          </span>
+          <a
+            href={getCertificateDownloadUrl(cert.id)}
+            className="shrink-0 rounded-md border border-amber-300 bg-white px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100"
           >
-            <span className="flex items-center gap-2">
-              <Award className="h-4 w-4" /> Certificats
-            </span>
-            {certExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
-          {certExpanded && (
-            <div className="mt-2 space-y-2">
-              {sessionCerts.map((cert: Certificate) => (
-                <a
-                  key={cert.id}
-                  href={getCertificateDownloadUrl(cert.id)}
-                  className="flex items-center gap-3 rounded-md border border-amber-200 bg-white px-3 py-2 text-sm hover:bg-amber-50"
-                >
-                  <Award className="h-4 w-4 shrink-0 text-amber-600" />
-                  <span className="flex-1">Certificat — {cert.formation?.titre}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(cert.dateEmission).toLocaleDateString("fr-FR")}
-                  </span>
-                  <Download className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                </a>
-              ))}
-            </div>
-          )}
+            Télécharger
+          </a>
         </div>
       )}
     </div>

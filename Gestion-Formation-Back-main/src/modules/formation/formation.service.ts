@@ -71,7 +71,7 @@ export class FormationService {
     const formation = await this.formationRepository.findOne({
       where: { id },
       relations: {
-        sessions: { participants: true, formateurs: true, employes: true },
+        sessions: { participants: true, formateurs: true },
         certificats: true,
       },
     });

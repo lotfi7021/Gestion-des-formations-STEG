@@ -95,7 +95,7 @@ export class AiService {
     const started = Date.now();
     const session = await this.sessionRepository.findOne({
       where: { id: sessionId },
-      relations: { formation: true, formateurs: true, participants: true, employes: true },
+      relations: { formation: true, formateurs: true, participants: true },
     });
     if (!session) throw new NotFoundException(`Session #${sessionId} introuvable`);
 
@@ -110,7 +110,7 @@ export class AiService {
 
     const totalLignes = presences.length;
     const presents = presences.filter((p) => p.statutFormation === PresenceStatus.PRESENT).length;
-    const totalParticipants = (session.participants?.length ?? 0) + (session.employes?.length ?? 0);
+    const totalParticipants = session.participants?.length ?? 0;
     const tauxPresence = totalLignes > 0 ? Math.round((presents / totalLignes) * 100) : 0;
 
     const commentaires = evaluations.map((e) => e.commentaire).filter((c): c is string => Boolean(c));

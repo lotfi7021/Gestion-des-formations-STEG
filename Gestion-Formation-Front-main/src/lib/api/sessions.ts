@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { EmployeRef, FormationRef, UserRef } from "./types";
+import type { FormationRef, UserRef } from "./types";
 
 export type Session = {
   id: string;
@@ -20,7 +20,6 @@ export type Session = {
   notes: string;
   formation: FormationRef;
   participants: UserRef[];
-  employes: EmployeRef[];
   formateurs: UserRef[];
   createdAt: string;
   updatedAt: string;

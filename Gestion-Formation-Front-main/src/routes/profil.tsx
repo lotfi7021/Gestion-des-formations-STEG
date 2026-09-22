@@ -7,7 +7,7 @@ import { PageShell } from "@/components/page-shell";
 import { useAuth } from "@/contexts/auth-context";
 import { API_URL } from "@/lib/api/client";
 import { updateProfile, changePassword, uploadAvatar } from "@/lib/api/auth";
-import { getMySessions } from "@/lib/api/sessions";
+import { getMySessions, type Session } from "@/lib/api/sessions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,7 +48,7 @@ function ProfilPage() {
       setUser({ ...user!, username, nom, prenom });
       setProfileErrors({});
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       try {
         const msg = JSON.parse(err.message);
         setProfileErrors({ form: msg.message || "Erreur" });
@@ -66,7 +66,7 @@ function ProfilPage() {
       setConfirmPassword("");
       setPasswordError("Mot de passe mis à jour avec succès");
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       setPasswordError(err?.message || "Erreur lors du changement de mot de passe");
     },
   });
@@ -83,7 +83,7 @@ function ProfilPage() {
     onSuccess: (data) => {
       setUser({ ...user!, avatarUrl: data.avatarUrl });
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       setProfileErrors({ form: err.message || "Erreur lors du téléchargement" });
     },
   });
@@ -314,7 +314,7 @@ function MesFormations() {
         </div>
       ) : sessions && sessions.length > 0 ? (
         <div className="mt-6 space-y-3">
-          {sessions.map((s: any) => {
+          {sessions.map((s: Session) => {
             const d = new Date(s.dateDebut);
             return (
               <div

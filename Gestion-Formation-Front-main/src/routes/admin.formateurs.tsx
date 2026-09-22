@@ -120,7 +120,7 @@ function AdminFormateurs() {
       setPendingDocs({});
       toast.success(editingId ? "Formateur modifié" : "Formateur ajouté · Email envoyé");
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       try {
         const msg = JSON.parse(err.message);
         toast.error(msg.message || "Erreur");
@@ -137,7 +137,7 @@ function AdminFormateurs() {
       queryClient.invalidateQueries({ queryKey: ["formateurs"] });
       toast.success("Document ajouté");
     },
-    onError: (err: any) => toast.error(err.message || "Erreur upload"),
+    onError: (err: Error) => toast.error(err.message || "Erreur upload"),
   });
 
   const deleteMutation = useMutation({
@@ -147,7 +147,7 @@ function AdminFormateurs() {
       setDeleteId(null);
       toast.success("Formateur supprimé");
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       console.error("Delete formateur error:", err);
       toast.error(err.message || "Erreur lors de la suppression");
       setDeleteId(null);

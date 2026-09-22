@@ -7,12 +7,10 @@ import { Formation } from '../../entities/formation.entity';
 import { Session } from '../../entities/session.entity';
 import { Inscription } from '../../entities/inscription.entity';
 import { User } from '../../entities/user.entity';
-import { Employe } from '../../entities/employe.entity';
 import { Evaluation } from '../../entities/evaluation.entity';
 import { FormationType } from '../../common/enums/formation-type.enum';
 import { UserRole } from '../../common/enums/role.enum';
 import { StatutPaiement } from '../../common/enums/payment-status.enum';
-import { EmployeService } from '../employe/employe.service';
 import { MailService } from '../mail/mail.service';
 
 interface ActionIntent {
@@ -36,9 +34,7 @@ export class ChatbotService {
     @InjectRepository(Session) private sessionRepo: Repository<Session>,
     @InjectRepository(Inscription) private inscriptionRepo: Repository<Inscription>,
     @InjectRepository(User) private userRepo: Repository<User>,
-    @InjectRepository(Employe) private employeRepo: Repository<Employe>,
     @InjectRepository(Evaluation) private evaluationRepo: Repository<Evaluation>,
-    private readonly employeService: EmployeService,
     private readonly mailService: MailService,
   ) {}
 
@@ -62,13 +58,12 @@ export class ChatbotService {
         parts.push(`- Formation: "${f.titre}" (${f.type}, ${f.dureeEnJours ?? '?'} jours, tarif: ${f.tarif ?? '?'} DT, active: ${f.isActive})`);
       });
 
-      const sessions = await this.sessionRepo.find({ relations: { formation: true, formateurs: true, participants: true, employes: true }, take: 50 });
+      const sessions = await this.sessionRepo.find({ relations: { formation: true, formateurs: true, participants: true }, take: 50 });
       parts.push(`Nombre total de sessions: ${sessions.length}`);
       sessions.forEach(s => {
         const formateurs = s.formateurs?.map(f => `${f.prenom} ${f.nom}`).join(', ') || 'aucun';
         const nbParticipants = s.participants?.length || 0;
-        const nbEmployes = s.employes?.length || 0;
-        parts.push(`- Session du ${s.dateDebut ? new Date(s.dateDebut).toLocaleDateString('fr-FR') : '?'} au ${s.dateFin ? new Date(s.dateFin).toLocaleDateString('fr-FR') : '?'}, formation: "${s.formation?.titre || '?'}", lieu: ${s.lieu || '?'}, formateurs: [${formateurs}], participants: ${nbParticipants}, employés: ${nbEmployes}, complétée: ${s.isCompleted}, annulée: ${s.isCancelled}`);
+        parts.push(`- Session du ${s.dateDebut ? new Date(s.dateDebut).toLocaleDateString('fr-FR') : '?'} au ${s.dateFin ? new Date(s.dateFin).toLocaleDateString('fr-FR') : '?'}, formation: "${s.formation?.titre || '?'}", lieu: ${s.lieu || '?'}, formateurs: [${formateurs}], participants: ${nbParticipants}, complétée: ${s.isCompleted}, annulée: ${s.isCancelled}`);
       });
     }
 
@@ -85,15 +80,14 @@ export class ChatbotService {
         parts.push(`- Inscription: ${i.user?.prenom || '?'} ${i.user?.nom || '?'} → "${i.session?.formation?.titre || '?'}" (${new Date(i.session?.dateDebut).toLocaleDateString('fr-FR')}), montant: ${i.montant} DT, statut: ${i.statutPaiement}, méthode: ${i.methodePaiement}`);
       });
 
-      const employes = await this.employeRepo.find({ take: 100 });
-      parts.push(`Nombre total d'employés: ${employes.length}`);
-      parts.push('--- Liste des employés ---');
-      employes.forEach(e => parts.push(`- ${e.prenom || '?'} ${e.nom || '?'} (${e.email}), téléphone: ${e.telephone || 'N/A'}, poste: ${e.poste || 'N/A'}, département: ${e.departement || 'N/A'}, direction: ${e.directionText || 'N/A'}`));
-
-      const users = await this.userRepo.find({ take: 100 });
+      const users = await this.userRepo.find({ take: 200 });
+      const employes = users.filter(u => u.role === 'employe');
       const participants = users.filter(u => u.role === 'participant');
       const formateursList = users.filter(u => u.role === 'formateur');
       const adminsList = users.filter(u => u.role === 'admin');
+      parts.push(`Nombre total d'employés STEG: ${employes.length}`);
+      parts.push('--- Liste des employés STEG ---');
+      employes.forEach(e => parts.push(`- ${e.prenom || '?'} ${e.nom || '?'} (${e.email}), identifiant: ${e.identifiant || 'N/A'}, téléphone: ${e.telephone || 'N/A'}, poste: ${e.poste || 'N/A'}, département: ${e.departement || 'N/A'}, direction: ${e.directionText || 'N/A'}, actif: ${e.isActive}`));
       parts.push(`Nombre de participants: ${participants.length}`);
       parts.push(`Nombre de formateurs: ${formateursList.length}`);
       parts.push(`Nombre d'administrateurs: ${adminsList.length}`);
@@ -166,7 +160,7 @@ export class ChatbotService {
 
       // --- KPI détaillés par session ---
       const sessionsWithEvals = await this.sessionRepo.find({
-        relations: { formation: true, participants: true, employes: true, formateurs: true },
+        relations: { formation: true, participants: true, formateurs: true },
         take: 50,
       });
       const evalsBySession = new Map<string, Evaluation[]>();
@@ -200,7 +194,7 @@ export class ChatbotService {
         const tauxEval = Math.round((scoreFormation / 4) * 100);
         const nbNotesSup4 = sessionEvals.filter((e: any) => (e.noteSatisfactionGlobale ?? e.note ?? 0) >= 4).length;
         const tauxSatis = Math.round((nbNotesSup4 / sessionEvals.length) * 100);
-        const nbParticipants = (s.participants?.length || 0) + (s.employes?.length || 0);
+        const nbParticipants = s.participants?.length || 0;
         const maxCap = s.capaciteMax;
         const tauxParticipation = maxCap ? Math.round((nbParticipants / maxCap) * 100) : 'N/A';
         const formateurNom = s.formateurs?.[0] ? `${s.formateurs[0].prenom} ${s.formateurs[0].nom}` : '—';
@@ -594,15 +588,34 @@ Si action: {"type": "action", "action": "nom_action", "parameters": {"champ": "v
     if (!params.nom) throw new Error('Le nom est obligatoire.');
     if (!params.email) throw new Error('L\'email est obligatoire.');
 
-    const saved = await this.employeService.create({
+    const existing = await this.userRepo.findOneBy({ email: params.email });
+    if (existing) throw new Error(`Un utilisateur avec l'email ${params.email} existe déjà.`);
+
+    const defaultPassword = 'StegForm2026!';
+    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+
+    const user = this.userRepo.create({
+      username: params.email,
+      email: params.email,
+      password: hashedPassword,
+      role: UserRole.EMPLOYE,
       nom: params.nom,
       prenom: params.prenom || '-',
-      email: params.email,
-      telephone: params.telephone || undefined,
-      poste: params.poste || undefined,
-      departement: params.departement || undefined,
-      directionText: params.directionText || undefined,
+      telephone: params.telephone || null,
+      poste: params.poste || null,
+      departement: params.departement || null,
+      directionText: params.directionText || null,
+      isActive: true,
     });
+
+    const saved = await this.userRepo.save(user);
+
+    await this.mailService.send({
+      to: saved.email,
+      subject: 'Bienvenue sur steg_form — Vos identifiants',
+      html: `<p>Bonjour ${saved.prenom} ${saved.nom},</p><p>Votre compte employé STEG a été créé sur steg_form.</p><p><b>Email :</b> ${saved.email}<br><b>Mot de passe :</b> ${defaultPassword}</p><p>Connectez-vous pour accéder au catalogue des formations.</p>`,
+    });
+
     return `Employé ${saved.prenom} ${saved.nom} ajouté avec succès (email: ${saved.email}). Un email de bienvenue a été envoyé.`;
   }
 
@@ -783,19 +796,8 @@ Si action: {"type": "action", "action": "nom_action", "parameters": {"champ": "v
     return `Session du ${new Date(session.dateDebut).toLocaleDateString('fr-FR')} pour "${session.formation?.titre}" supprimée.`;
   }
 
-  private async findEmployeByParams(params: Record<string, any>): Promise<Employe | null> {
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const lookup = params.identifiant || params.id || params.email || params.nom;
-    if (!lookup) return null;
-    if (uuidRe.test(lookup)) {
-      const byId = await this.employeRepo.findOneBy({ id: lookup });
-      if (byId) return byId;
-    }
-    const byIdent = await this.employeRepo.findOneBy({ identifiant: lookup });
-    if (byIdent) return byIdent;
-    const byEmail = await this.employeRepo.findOneBy({ email: lookup });
-    if (byEmail) return byEmail;
-    return this.employeRepo.findOne({ where: [{ nom: lookup }, { prenom: lookup }] });
+  private async findEmployeByParams(params: Record<string, any>): Promise<User | null> {
+    return this.findUserByParams(params, UserRole.EMPLOYE);
   }
 
   private async findUserByParams(params: Record<string, any>, role?: UserRole): Promise<User | null> {
@@ -819,7 +821,7 @@ Si action: {"type": "action", "action": "nom_action", "parameters": {"champ": "v
   private async deleteEmploye(params: Record<string, any>): Promise<string> {
     const employe = await this.findEmployeByParams(params);
     if (!employe) throw new Error('Employé non trouvé.');
-    await this.employeRepo.remove(employe);
+    await this.userRepo.remove(employe);
     return `Employé ${employe.prenom} ${employe.nom} supprimé avec succès.`;
   }
 

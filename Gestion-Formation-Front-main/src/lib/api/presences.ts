@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { EmployeRef, SessionRef } from "./types";
+import type { UserRef, SessionRef } from "./types";
 
 export type Presence = {
   id: string;
@@ -11,7 +11,7 @@ export type Presence = {
   commentaire: string;
   isJustified: boolean;
   justificatifUrl: string;
-  employe: EmployeRef;
+  user: UserRef;
   session: SessionRef;
 };
 

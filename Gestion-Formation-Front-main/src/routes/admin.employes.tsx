@@ -44,8 +44,8 @@ const emptyForm = {
   email: "",
   poste: "",
   departement: "",
+  directionText: "",
   telephone: "",
-  entrepriseText: "",
 };
 
 function AdminEmployes() {
@@ -72,8 +72,7 @@ function AdminEmployes() {
 
   const saveMutation = useMutation({
     mutationFn: () => {
-      const { entrepriseText, ...rest } = form;
-      const payload = { ...rest, entrepriseText: entrepriseText || undefined };
+      const payload = { ...form };
       return editingId ? updateEmploye(editingId, payload) : createEmploye(payload);
     },
     onSuccess: () => {
@@ -127,8 +126,8 @@ function AdminEmployes() {
       email: p.email,
       poste: p.poste || "",
       departement: p.departement || "",
+      directionText: p.directionText || "",
       telephone: p.telephone || "",
-      entrepriseText: p.entrepriseText || "",
     });
     setOpen(true);
   };
@@ -246,11 +245,11 @@ function AdminEmployes() {
                   />
                 </div>
                 <div>
-                  <Label>Entreprise</Label>
+                  <Label>Direction</Label>
                   <Input
-                    placeholder="ex : Société ABC"
-                    value={form.entrepriseText}
-                    onChange={(e) => setForm({ ...form, entrepriseText: e.target.value })}
+                    placeholder="ex : District de Bizerte"
+                    value={form.directionText || ""}
+                    onChange={(e) => setForm({ ...form, directionText: e.target.value })}
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={saveMutation.isPending}>
@@ -326,29 +325,25 @@ function AdminEmployes() {
                     <td className="px-4 py-3 text-muted-foreground">{p.telephone || "—"}</td>
                     <td className="px-4 py-3">
                       <span
-                        className={`rounded-full px-2 py-0.5 text-xs ${p.userActive ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"}`}
+                        className={`rounded-full px-2 py-0.5 text-xs ${p.isActive ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"}`}
                       >
-                        {p.userActive ? "Actif" : "Inactif"}
+                        {p.isActive ? "Actif" : "Inactif"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {p.userId && (
-                          <button
-                            onClick={() =>
-                              toggleMutation.mutate({ id: p.userId!, isActive: !p.userActive })
-                            }
-                            disabled={toggleMutation.isPending}
-                            className={`rounded p-1.5 ${p.userActive ? "text-blue-600 hover:bg-blue-100" : "text-muted-foreground hover:bg-secondary"}`}
-                            title={p.userActive ? "Désactiver" : "Activer"}
-                          >
-                            {p.userActive ? (
-                              <ToggleRight className="h-4 w-4" />
-                            ) : (
-                              <ToggleLeft className="h-4 w-4" />
-                            )}
-                          </button>
-                        )}
+                        <button
+                          onClick={() => toggleMutation.mutate({ id: p.id, isActive: !p.isActive })}
+                          disabled={toggleMutation.isPending}
+                          className={`rounded p-1.5 ${p.isActive ? "text-blue-600 hover:bg-blue-100" : "text-muted-foreground hover:bg-secondary"}`}
+                          title={p.isActive ? "Désactiver" : "Activer"}
+                        >
+                          {p.isActive ? (
+                            <ToggleRight className="h-4 w-4" />
+                          ) : (
+                            <ToggleLeft className="h-4 w-4" />
+                          )}
+                        </button>
                         <button
                           onClick={() => openEdit(p)}
                           className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"

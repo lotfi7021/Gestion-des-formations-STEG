@@ -140,7 +140,7 @@ function AdminFormations() {
         toast.success("Formation créée");
       }
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       console.error("Save formation error:", err);
       try {
         const msg = JSON.parse(err.message);
@@ -299,7 +299,9 @@ function AdminFormations() {
                     <Label className="text-xs">Type</Label>
                     <Select
                       value={form.type}
-                      onValueChange={(v) => setForm({ ...form, type: v as any })}
+                      onValueChange={(v) =>
+                        setForm({ ...form, type: v as "catalogue" | "intra" | "inter" })
+                      }
                     >
                       <SelectTrigger className="h-8">
                         <SelectValue placeholder="Sélectionner un type" />

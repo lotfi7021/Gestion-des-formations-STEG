@@ -56,7 +56,7 @@ function AdminPaiementsPage() {
       queryClient.invalidateQueries({ queryKey: ["pending-inscriptions"] });
       queryClient.invalidateQueries({ queryKey: ["confirmed-inscriptions"] });
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err.message || "Erreur lors de la confirmation");
     },
   });
@@ -69,7 +69,7 @@ function AdminPaiementsPage() {
       queryClient.invalidateQueries({ queryKey: ["pending-inscriptions"] });
       queryClient.invalidateQueries({ queryKey: ["confirmed-inscriptions"] });
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err.message || "Erreur lors du refus");
     },
   });

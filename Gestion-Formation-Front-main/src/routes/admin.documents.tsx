@@ -22,7 +22,6 @@ import {
   deleteSignature,
   generateConvention,
   generateContratFormateur,
-  generateFeuilleEmargement,
   downloadDocumentSigne,
   getMySignatures,
   type DocumentSigne,
@@ -31,6 +30,7 @@ import {
 import { getSessions, type Session } from "@/lib/api/sessions";
 import { getFormateurs } from "@/lib/api/formateurs";
 import { getParticipants } from "@/lib/api/users";
+import type { UserRef } from "@/lib/api/types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -55,14 +55,12 @@ export const Route = createFileRoute("/admin/documents")({
 
 const typeLabels: Record<string, string> = {
   convention_formation: "Convention",
-  feuille_emargement: "Émargement",
   contrat_formateur: "Contrat",
   certificat: "Certificat",
 };
 
 const typeIcons: Record<string, typeof FileText> = {
   convention_formation: FileCheck,
-  feuille_emargement: UserCheck,
   contrat_formateur: Building2,
   certificat: Award,
 };
@@ -71,7 +69,7 @@ function AdminDocuments() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"documents" | "signatures">("documents");
   const [genDialog, setGenDialog] = useState<string | null>(null);
-  const [genType, setGenType] = useState<"convention" | "contrat" | "emargement" | null>(null);
+  const [genType, setGenType] = useState<"convention" | "contrat" | null>(null);
   const [selectedSession, setSelectedSession] = useState("");
   const [selectedParticipant, setSelectedParticipant] = useState("");
   const [selectedFormateur, setSelectedFormateur] = useState("");
@@ -126,7 +124,7 @@ function AdminDocuments() {
       pId,
       fId,
     }: {
-      gType: "convention" | "contrat" | "emargement";
+      gType: "convention" | "contrat";
       sId: string;
       pId?: string;
       fId?: string;
@@ -135,7 +133,6 @@ function AdminDocuments() {
       if (gType === "contrat" && !fId) throw new Error("Formateur requis");
       if (gType === "convention") return generateConvention(sId, pId!);
       if (gType === "contrat") return generateContratFormateur(sId, fId!);
-      if (gType === "emargement") return generateFeuilleEmargement(sId);
       throw new Error("Type invalide");
     },
     onSuccess: () => {
@@ -191,7 +188,7 @@ function AdminDocuments() {
                   <Select
                     value={genType || ""}
                     onValueChange={(v) => {
-                      setGenType(v as any);
+                      setGenType(v as "convention" | "contrat");
                       resetGenForm();
                     }}
                   >
@@ -201,7 +198,6 @@ function AdminDocuments() {
                     <SelectContent>
                       <SelectItem value="convention">Convention de formation</SelectItem>
                       <SelectItem value="contrat">Contrat formateur</SelectItem>
-                      <SelectItem value="emargement">Feuille d'émargement</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -214,7 +210,7 @@ function AdminDocuments() {
                         <SelectValue placeholder="Sélectionner une session" />
                       </SelectTrigger>
                       <SelectContent>
-                        {sessions?.map((s: any) => (
+                        {sessions?.map((s: Session) => (
                           <SelectItem key={s.id} value={s.id}>
                             {s.formation?.titre || "Formation"} —{" "}
                             {new Date(s.dateDebut).toLocaleDateString("fr-FR")}
@@ -233,7 +229,7 @@ function AdminDocuments() {
                         <SelectValue placeholder="Sélectionner un participant" />
                       </SelectTrigger>
                       <SelectContent>
-                        {participants?.map((p: any) => (
+                        {participants?.map((p: UserRef) => (
                           <SelectItem key={p.id} value={p.id}>
                             {p.prenom} {p.nom} — {p.email}
                           </SelectItem>
@@ -251,7 +247,7 @@ function AdminDocuments() {
                         <SelectValue placeholder="Sélectionner un formateur" />
                       </SelectTrigger>
                       <SelectContent>
-                        {formateurs?.map((f: any) => (
+                        {formateurs?.map((f: UserRef) => (
                           <SelectItem key={f.id} value={f.id}>
                             {f.prenom} {f.nom} — {f.email}
                           </SelectItem>
