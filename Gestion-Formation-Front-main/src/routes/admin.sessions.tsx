@@ -31,8 +31,8 @@ import {
 } from "@/lib/api/sessions";
 import { getFormations, type Formation } from "@/lib/api/formations";
 import { API_BASE } from "@/lib/api/client";
-import { getEmployes, type Employe } from "@/lib/api/employes";
 import { getFormateurs } from "@/lib/api/formateurs";
+import { getParticipants as getParticipantsUsers } from "@/lib/api/users";
 import { getParticipants, type Participant } from "@/lib/api/users";
 
 /** Inscrit possible à une session : participant (User) ou employé STEG (User role=employe). */
@@ -247,10 +247,10 @@ function AdminSessions() {
   });
   // Liste unifiée : employés STEG (role=employe) + participants (role=participant)
   const { data: participants } = useQuery({
-    queryKey: ["participants", "employes-users"],
+    queryKey: ["participants", "users"],
     queryFn: async (): Promise<PersonneInscriptible[]> => {
-      const [users, employes] = await Promise.all([getParticipants(), getEmployes()]);
-      return [...users, ...employes];
+      const users = await getParticipantsUsers();
+      return [...users];
     },
   });
 

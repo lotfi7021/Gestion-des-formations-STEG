@@ -22,6 +22,14 @@ export type Formation = {
   sessions?: SessionRef[];
 };
 
+export type PaginatedFormations = {
+  data: Formation[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
 export type CreateFormationDto = {
   titre: string;
   description?: string;
@@ -36,11 +44,25 @@ export type CreateFormationDto = {
   capaciteMax?: number;
 };
 
-export async function getFormations(all?: boolean): Promise<Formation[]> {
+/**
+ * Liste des formations.
+ * NOTE: l'API retourne un objet paginé { data, total, page, limit, totalPages }.
+ * Pour compatibilité avec tous les appelants existants (qui itèrent sur un
+ * tableau), on extrait ici le tableau `data`. Utiliser getFormationsPaginated()
+ * pour accéder aux métadonnées de pagination.
+ */
+export async function getFormations(options: { all?: boolean; page?: number; limit?: number } = {}): Promise<Formation[]> {
+  const paginated = await getFormationsPaginated(options);
+  return paginated.data ?? [];
+}
+
+export async function getFormationsPaginated(options: { all?: boolean; page?: number; limit?: number } = {}): Promise<PaginatedFormations> {
   const params = new URLSearchParams();
-  if (all) params.set("all", "true");
+  if (options.all) params.set("all", "true");
+  if (options.page) params.set("page", options.page.toString());
+  if (options.limit) params.set("limit", options.limit.toString());
   const qs = params.toString();
-  return api.get<Formation[]>(`/formations${qs ? `?${qs}` : ""}`);
+  return api.get<PaginatedFormations>(`/formations${qs ? `?${qs}` : ""}`);
 }
 
 export async function getFormation(id: string): Promise<Formation> {

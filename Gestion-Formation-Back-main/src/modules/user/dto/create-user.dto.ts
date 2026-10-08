@@ -23,9 +23,5 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsUUID()
-  employeId?: string;
-
-  @IsOptional()
-  @IsUUID()
   formateurId?: string;
 }

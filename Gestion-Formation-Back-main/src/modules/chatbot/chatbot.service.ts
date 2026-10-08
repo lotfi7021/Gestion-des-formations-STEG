@@ -15,7 +15,7 @@ import { MailService } from '../mail/mail.service';
 
 interface ActionIntent {
   type: 'action';
-  action: 'add_formation' | 'add_session' | 'add_employe' | 'add_participant' | 'add_formateur' | 'confirm_payment' | 'refuse_payment' | 'delete_formation' | 'delete_session' | 'delete_employe' | 'delete_participant' | 'delete_formateur' | 'deactivate_user';
+  action: 'add_formation' | 'add_session' | 'add_participant' | 'add_formateur' | 'confirm_payment' | 'refuse_payment' | 'delete_formation' | 'delete_session' | 'delete_participant' | 'delete_formateur' | 'deactivate_user';
   parameters: Record<string, any>;
 }
 
@@ -81,13 +81,9 @@ export class ChatbotService {
       });
 
       const users = await this.userRepo.find({ take: 200 });
-      const employes = users.filter(u => u.role === 'employe');
       const participants = users.filter(u => u.role === 'participant');
       const formateursList = users.filter(u => u.role === 'formateur');
       const adminsList = users.filter(u => u.role === 'admin');
-      parts.push(`Nombre total d'employés STEG: ${employes.length}`);
-      parts.push('--- Liste des employés STEG ---');
-      employes.forEach(e => parts.push(`- ${e.prenom || '?'} ${e.nom || '?'} (${e.email}), identifiant: ${e.identifiant || 'N/A'}, téléphone: ${e.telephone || 'N/A'}, poste: ${e.poste || 'N/A'}, département: ${e.departement || 'N/A'}, direction: ${e.directionText || 'N/A'}, actif: ${e.isActive}`));
       parts.push(`Nombre de participants: ${participants.length}`);
       parts.push(`Nombre de formateurs: ${formateursList.length}`);
       parts.push(`Nombre d'administrateurs: ${adminsList.length}`);
@@ -225,7 +221,7 @@ export class ChatbotService {
       parts.push(`Taux de Réussite = (nombre d'évaluations avec score ≥ 60% / nombre total d'évaluations) × 100.`);
     }
 
-    if (role === 'participant' || role === 'employe') {
+    if (role === 'participant') {
       if (userId) {
         const myInscriptions = await this.inscriptionRepo.find({
           where: { userId },
@@ -279,7 +275,7 @@ export class ChatbotService {
     const apiKey = this.configService.get<string>('GROQ_API_KEY');
     if (!apiKey) return "Erreur: clé API Groq non configurée.";
 
-    const roleLabel = { admin: 'Administrateur', formateur: 'Formateur', participant: 'Participant', employe: 'Employé' }[role] || 'Utilisateur';
+    const roleLabel = { admin: 'Administrateur', formateur: 'Formateur', participant: 'Participant' }[role] || 'Utilisateur';
 
     const systemPrompt = `Tu es un assistant chatbot pour la plateforme steg_form (gestion de formations de la STEG - Société Tunisienne de l'Électricité et du Gaz).
 L'utilisateur est un ${roleLabel}.
@@ -349,14 +345,12 @@ Utilise des émojis avec parcimonie.`;
       switch (intent.action) {
         case 'add_formation': return await this.addFormation(intent.parameters);
         case 'add_session': return await this.addSession(intent.parameters);
-        case 'add_employe': return await this.addEmploye(intent.parameters);
         case 'add_participant': return await this.addParticipant(intent.parameters);
         case 'add_formateur': return await this.addFormateur(intent.parameters);
         case 'confirm_payment': return await this.confirmPayment(intent.parameters);
         case 'refuse_payment': return await this.refusePayment(intent.parameters);
         case 'delete_formation': return await this.deleteFormation(intent.parameters);
         case 'delete_session': return await this.deleteSession(intent.parameters);
-        case 'delete_employe': return await this.deleteEmploye(intent.parameters);
         case 'delete_participant': return await this.deleteParticipant(intent.parameters);
         case 'delete_formateur': return await this.deleteFormateur(intent.parameters);
         case 'deactivate_user': return await this.deactivateUser(intent.parameters);
@@ -378,7 +372,6 @@ Utilise des émojis avec parcimonie.`;
 
     const hasFormation = /\bformation\b/i.test(q);
     const hasSession = /\bsession\b/i.test(q);
-    const hasEmploye = /\bemploy[ée]\b/i.test(q);
     const hasParticipant = /\bparticipant\b/i.test(q);
     const hasFormateur = /\bformateur\b/i.test(q);
 
@@ -389,7 +382,6 @@ Utilise des émojis avec parcimonie.`;
       let actionType: string | null = null;
       if (hasFormation) actionType = 'add_formation';
       else if (hasSession) actionType = 'add_session';
-      else if (hasEmploye) actionType = 'add_employe';
       else if (hasParticipant) actionType = 'add_participant';
       else if (hasFormateur) actionType = 'add_formateur';
       if (actionType) return this.extractParams(question, actionType);
@@ -399,14 +391,13 @@ Utilise des émojis avec parcimonie.`;
       let actionType: string | null = null;
       if (hasFormation) actionType = 'delete_formation';
       else if (hasSession) actionType = 'delete_session';
-      else if (hasEmploye) actionType = 'delete_employe';
       else if (hasParticipant) actionType = 'delete_participant';
       else if (hasFormateur) actionType = 'delete_formateur';
       if (actionType) return this.extractParams(question, actionType);
     }
 
     if (hasDeactivate) {
-      if (hasEmploye || hasParticipant || hasFormateur || /\b(?:compte|utilisateur|user)\b/i.test(q))
+      if (hasParticipant || hasFormateur || /\b(?:compte|utilisateur|user)\b/i.test(q))
         return this.extractParams(question, 'deactivate_user');
     }
 
@@ -422,12 +413,10 @@ Utilise des émojis avec parcimonie.`;
       confirm_payment: 'Extrais le nom (nom, prenom ou username) de l\'utilisateur et le titre de la formation depuis le message. Paramètres: nom (obligatoire), prenom, formationTitre (obligatoire).',
       add_formation: 'Extrais les informations de la formation: titre (obligatoire), description, objectifs, prerequis, categorie, tarif, type (intra/inter/catalogue/cycle), programme, dureeEnHeures, dureeEnJours, capaciteMax.',
       add_session: 'Extrais les informations de la session: formationTitre (obligatoire), dateDebut (obligatoire), dateFin (obligatoire), heureDebut, heureFin, lieu, salle, capaciteMax.',
-      add_employe: 'Extrais les informations de l\'employé: nom (obligatoire), prenom (obligatoire), email (obligatoire), telephone, poste, departement, directionText, identifiant.',
       add_participant: 'Extrais les informations du participant: nom (obligatoire), prenom (obligatoire), email (obligatoire), telephone, poste, departement, directionText.',
       add_formateur: 'Extrais les informations du formateur: nom (obligatoire), prenom (obligatoire), email (obligatoire), telephone, specialites, qualifications.',
       delete_formation: 'Extrais le titre ou id de la formation à supprimer. Paramètres: titre ou id.',
       delete_session: 'Extrais l\'id ou formationTitre+dateDebut de la session à supprimer.',
-      delete_employe: 'Extrais l\'email, id, identifiant ou nom de l\'employé à supprimer.',
       delete_participant: 'Extrais l\'email, id, identifiant ou nom du participant à supprimer.',
       delete_formateur: 'Extrais l\'email, id, identifiant ou nom du formateur à supprimer.',
       deactivate_user: 'Extrais le nom, email, identifiant ou username de l\'utilisateur à désactiver. Paramètres: nom (obligatoire).',
@@ -485,14 +474,12 @@ Extrais TOUS les paramètres fournis. Si un paramètre obligatoire manque, tente
 Actions possibles:
 - add_formation: Ajouter une formation (titre obligatoire, optionnels: description, objectifs, prerequis, categorie, tarif, type (intra/inter/catalogue/cycle), programme, dureeEnHeures, dureeEnJours, capaciteMax)
 - add_session: Ajouter une session (formationId ou formationTitre, dateDebut, dateFin obligatoires, optionnels: heureDebut, heureFin, lieu, salle, capaciteMax)
-- add_employe: Ajouter un employé (nom, prenom, email obligatoires, optionnels: telephone, poste, departement, directionText, identifiant)
 - add_participant: Ajouter un participant (nom, prenom, email obligatoires, optionnels: telephone, poste, departement, directionText)
 - add_formateur: Ajouter un formateur (nom, prenom, email obligatoires, optionnels: telephone, specialites, qualifications)
 - confirm_payment: Confirmer un paiement (inscriptionId OU nom+prenom+formationTitre)
 - refuse_payment: Refuser un paiement / annuler une inscription (inscriptionId OU nom+prenom+formationTitre)
 - delete_formation: Supprimer une formation (titre OU id)
 - delete_session: Supprimer une session (id OU formationTitre+dateDebut)
-- delete_employe: Supprimer un employé (email OU id)
 - delete_participant: Supprimer un participant (email OU id)
 - delete_formateur: Supprimer un formateur (email OU id)
 
@@ -582,41 +569,6 @@ Si action: {"type": "action", "action": "nom_action", "parameters": {"champ": "v
 
     const saved = await this.sessionRepo.save(session);
     return `Session ajoutée pour "${formation.titre}" du ${new Date(saved.dateDebut).toLocaleDateString('fr-FR')} au ${new Date(saved.dateFin).toLocaleDateString('fr-FR')} (ID: ${saved.id}).`;
-  }
-
-  private async addEmploye(params: Record<string, any>): Promise<string> {
-    if (!params.nom) throw new Error('Le nom est obligatoire.');
-    if (!params.email) throw new Error('L\'email est obligatoire.');
-
-    const existing = await this.userRepo.findOneBy({ email: params.email });
-    if (existing) throw new Error(`Un utilisateur avec l'email ${params.email} existe déjà.`);
-
-    const defaultPassword = 'StegForm2026!';
-    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
-
-    const user = this.userRepo.create({
-      username: params.email,
-      email: params.email,
-      password: hashedPassword,
-      role: UserRole.EMPLOYE,
-      nom: params.nom,
-      prenom: params.prenom || '-',
-      telephone: params.telephone || null,
-      poste: params.poste || null,
-      departement: params.departement || null,
-      directionText: params.directionText || null,
-      isActive: true,
-    });
-
-    const saved = await this.userRepo.save(user);
-
-    await this.mailService.send({
-      to: saved.email,
-      subject: 'Bienvenue sur steg_form — Vos identifiants',
-      html: `<p>Bonjour ${saved.prenom} ${saved.nom},</p><p>Votre compte employé STEG a été créé sur steg_form.</p><p><b>Email :</b> ${saved.email}<br><b>Mot de passe :</b> ${defaultPassword}</p><p>Connectez-vous pour accéder au catalogue des formations.</p>`,
-    });
-
-    return `Employé ${saved.prenom} ${saved.nom} ajouté avec succès (email: ${saved.email}). Un email de bienvenue a été envoyé.`;
   }
 
   private async addParticipant(params: Record<string, any>): Promise<string> {
@@ -796,10 +748,6 @@ Si action: {"type": "action", "action": "nom_action", "parameters": {"champ": "v
     return `Session du ${new Date(session.dateDebut).toLocaleDateString('fr-FR')} pour "${session.formation?.titre}" supprimée.`;
   }
 
-  private async findEmployeByParams(params: Record<string, any>): Promise<User | null> {
-    return this.findUserByParams(params, UserRole.EMPLOYE);
-  }
-
   private async findUserByParams(params: Record<string, any>, role?: UserRole): Promise<User | null> {
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const lookup = params.identifiant || params.id || params.email || params.username || params.nom;
@@ -816,13 +764,6 @@ Si action: {"type": "action", "action": "nom_action", "parameters": {"champ": "v
     const byUsername = await this.userRepo.findOne({ where: { username: lookup, ...whereRole } });
     if (byUsername) return byUsername;
     return this.userRepo.findOne({ where: [{ nom: lookup, ...whereRole }, { prenom: lookup, ...whereRole }] });
-  }
-
-  private async deleteEmploye(params: Record<string, any>): Promise<string> {
-    const employe = await this.findEmployeByParams(params);
-    if (!employe) throw new Error('Employé non trouvé.');
-    await this.userRepo.remove(employe);
-    return `Employé ${employe.prenom} ${employe.nom} supprimé avec succès.`;
   }
 
   private async deleteParticipant(params: Record<string, any>): Promise<string> {

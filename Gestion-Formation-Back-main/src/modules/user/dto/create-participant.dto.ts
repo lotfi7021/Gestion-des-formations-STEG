@@ -1,7 +1,7 @@
 import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
 
 /**
- * Création d'un participant / employé STEG (compte User role=employe|participant).
+ * Création d'un participant (compte User role=participant).
  * Les champs STEG (poste, département, direction) sont portés par l'entité User.
  */
 export class CreateParticipantDto {

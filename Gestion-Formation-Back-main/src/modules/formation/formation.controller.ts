@@ -26,8 +26,16 @@ export class FormationController {
 
   @Get()
   @UseGuards(OptionalJwtGuard)
-  async findAll(@Query('all') all?: string) {
-    return this.formationService.findAll(all === 'true');
+  async findAll(
+    @Query('all') all?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.formationService.findAll({
+      all: all === 'true',
+      page: page ? parseInt(page, 10) : 1,
+      limit: limit ? parseInt(limit, 10) : 10,
+    });
   }
 
   @Get(':id')
@@ -44,7 +52,7 @@ export class FormationController {
   @Delete(':id')
   @UseGuards(ManualJwtGuard, AdminGuard)
   remove(@Param('id') id: string) {
-    return this.formationService.remove(id);
+    return this.formationService.remove(id); 
   }
 
   /**
@@ -55,7 +63,7 @@ export class FormationController {
   @Get(':id/ai-summary')
   @UseGuards(ManualJwtGuard)
   async getAiSummary(@Param('id') id: string, @Req() req: any) {
-    if (!['participant', 'employe'].includes(req.user?.role)) {
+    if (!['participant'].includes(req.user?.role)) {
       throw new ForbiddenException('Seuls les participants peuvent utiliser l\'assistant IA');
     }
     return this.aiService.generateFormationSummary(id, req.user.sub);
@@ -69,7 +77,7 @@ export class FormationController {
   @Post(':id/ai-ask')
   @UseGuards(ManualJwtGuard)
   async askQuestion(@Param('id') id: string, @Body() dto: AskFormationDto, @Req() req: any) {
-    if (!['participant', 'employe'].includes(req.user?.role)) {
+    if (!['participant'].includes(req.user?.role)) {
       throw new ForbiddenException('Seuls les participants peuvent utiliser l\'assistant IA');
     }
     return this.aiService.askFormationQuestion(id, dto.question, req.user.sub);

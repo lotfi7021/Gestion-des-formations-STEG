@@ -914,7 +914,7 @@ function AdminKPIPage() {
 
   const { data: formations } = useQuery({
     queryKey: ["formations-all"],
-    queryFn: () => getFormations(true),
+    queryFn: () => getFormations({ all: true }),
   });
 
   if (evLoading) {

@@ -1,9 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Download, Plus, Loader2, Pencil, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
+import {
+  Download,
+  Plus,
+  Loader2,
+  Pencil,
+  Trash2,
+  ToggleLeft,
+  ToggleRight,
+  GraduationCap,
+} from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/admin-shell";
+import { getSessions } from "@/lib/api/sessions";
+import { adminEnrollUser } from "@/lib/api/sessions";
 import {
   getParticipants,
   createParticipant,

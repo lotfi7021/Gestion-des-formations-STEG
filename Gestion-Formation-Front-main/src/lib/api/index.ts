@@ -2,7 +2,6 @@ export { api } from "./client";
 export * from "./auth";
 export * from "./formations";
 export * from "./sessions";
-export * from "./employes";
 export * from "./formateurs";
 export * from "./entreprises";
 export * from "./presences";

@@ -41,11 +41,10 @@ export class SessionService {
     });
 
     if (dto.participantIds?.length) {
-      // Participants = employés STEG et/ou participants externes (roles employe/participant)
+      // Participants = participants externes (role participant)
       session.participants = await this.userRepository.find({
         where: [
           { id: In(dto.participantIds), role: UserRole.PARTICIPANT },
-          { id: In(dto.participantIds), role: UserRole.EMPLOYE },
         ],
       });
     }
@@ -58,7 +57,7 @@ export class SessionService {
     const label = `"${formation.titre}" du ${new Date(dto.dateDebut).toLocaleDateString('fr-FR')} au ${new Date(dto.dateFin).toLocaleDateString('fr-FR')}`;
 
     const allUsers = await this.userRepository.find({
-      where: [{ role: UserRole.PARTICIPANT }, { role: UserRole.FORMATEUR }, { role: UserRole.EMPLOYE }, { role: UserRole.ADMIN }],
+      where: [{ role: UserRole.PARTICIPANT }, { role: UserRole.FORMATEUR }, { role: UserRole.ADMIN }],
     });
 
     await Promise.all(

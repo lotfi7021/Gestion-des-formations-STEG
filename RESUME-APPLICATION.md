@@ -41,7 +41,7 @@ Application web complète pour la **Direction de la Formation de la STEG** (Soci
 - **mail** — convocations et e-mails automatiques
 - **tasks** — cron toutes les heures : rappels automatiques des sessions qui commencent dans moins de 24h (participants + formateurs)
 - **employe / entreprise / formateur** — gestion des entités RH
-- **ai** — assistant IA (Groq, modèle `qwen/qwen3.8-27b`) : résumé de formation par RAG sur les PDF des sessions, Q&A scopée aux documents, textes de certificats, résumés de session
+- **ai** — assistant IA exécuté **en local via Ollama** (modèle `gemma3:4b`, API compatible OpenAI, défaut sans configuration ; bascule cloud Groq possible avec `AI_PROVIDER=groq`) : résumé de formation par RAG sur les PDF des sessions, Q&A scopée aux documents, textes de certificats, résumés de session
 - **chatbot** — chatbot global avec accès aux données de la base selon le rôle
 
 ---
