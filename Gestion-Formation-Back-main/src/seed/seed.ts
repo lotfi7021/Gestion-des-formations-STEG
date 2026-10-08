@@ -11,21 +11,21 @@ async function seed() {
   const admin: CreateUserDto = {
     username: 'admin',
     email: 'admin@steg.tn',
-    password: 'admin123',
+    password: process.env.SEED_ADMIN_PASSWORD ?? 'admin123',
     role: UserRole.ADMIN,
   };
 
   const formateur: CreateUserDto = {
     username: 'formateur',
     email: 'formateur@steg.tn',
-    password: 'formateur123',
+    password: process.env.SEED_FORMATEUR_PASSWORD ?? 'formateur123',
     role: UserRole.FORMATEUR,
   };
 
   const participant: CreateUserDto = {
     username: 'participant',
     email: 'participant@steg.tn',
-    password: 'participant123',
+    password: process.env.SEED_PARTICIPANT_PASSWORD ?? 'participant123',
     role: UserRole.PARTICIPANT,
   };
 
