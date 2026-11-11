@@ -1,4 +1,5 @@
 import { api, API_BASE } from "./client";
+import type { SessionRef } from "./types";
 
 export type Formation = {
   id: string;
@@ -16,12 +17,9 @@ export type Formation = {
   imageUrl?: string;
   supportsFormation: { nom: string; url: string; type: string; sessionId?: string }[];
   isActive: boolean;
-  clonedFromId?: string;
-  clonedFromCabinetId?: string;
-  clonedFromCabinetName?: string;
   createdAt: string;
   updatedAt: string;
-  sessions?: any[];
+  sessions?: SessionRef[];
 };
 
 export type CreateFormationDto = {
@@ -38,9 +36,8 @@ export type CreateFormationDto = {
   capaciteMax?: number;
 };
 
-export async function getFormations(cabinetId?: string, all?: boolean): Promise<Formation[]> {
+export async function getFormations(all?: boolean): Promise<Formation[]> {
   const params = new URLSearchParams();
-  if (cabinetId) params.set("cabinetId", cabinetId);
   if (all) params.set("all", "true");
   const qs = params.toString();
   return api.get<Formation[]>(`/formations${qs ? `?${qs}` : ""}`);

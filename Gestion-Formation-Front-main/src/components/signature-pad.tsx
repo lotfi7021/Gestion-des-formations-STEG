@@ -45,7 +45,7 @@ export function SignaturePad({
       if (!canvas || saved) return;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
-      const pos = getPos(e.nativeEvent as any);
+      const pos = getPos(e.nativeEvent as MouseEvent | TouchEvent);
       ctx.beginPath();
       ctx.moveTo(pos.x, pos.y);
       setIsDrawing(true);
@@ -63,7 +63,7 @@ export function SignaturePad({
       if (!canvas) return;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
-      const pos = getPos(e.nativeEvent as any);
+      const pos = getPos(e.nativeEvent as MouseEvent | TouchEvent);
       ctx.lineWidth = 2.5;
       ctx.lineCap = "round";
       ctx.strokeStyle = "#000";

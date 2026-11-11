@@ -88,7 +88,7 @@ function AdminDocuments() {
 
   const { data: sessions } = useQuery({
     queryKey: ["sessions"],
-    queryFn: getSessions,
+    queryFn: () => getSessions(),
   });
 
   const { data: participants } = useQuery({
@@ -98,7 +98,7 @@ function AdminDocuments() {
 
   const { data: formateurs } = useQuery({
     queryKey: ["formateurs"],
-    queryFn: getFormateurs,
+    queryFn: () => getFormateurs(),
   });
 
   const verifyMutation = useMutation({
@@ -107,7 +107,7 @@ function AdminDocuments() {
       queryClient.invalidateQueries({ queryKey: ["signatures-all"] });
       toast.success("Signature vérifiée");
     },
-    onError: (err: any) => toast.error(err.message || "Erreur"),
+    onError: (err: Error) => toast.error(err.message || "Erreur"),
   });
 
   const deleteSigMutation = useMutation({
@@ -116,7 +116,7 @@ function AdminDocuments() {
       queryClient.invalidateQueries({ queryKey: ["signatures-all"] });
       toast.success("Signature supprimée");
     },
-    onError: (err: any) => toast.error(err.message || "Erreur"),
+    onError: (err: Error) => toast.error(err.message || "Erreur"),
   });
 
   const genMutation = useMutation({
@@ -144,7 +144,7 @@ function AdminDocuments() {
       setGenDialog(null);
       resetGenForm();
     },
-    onError: (err: any) => toast.error(err.message || "Erreur"),
+    onError: (err: Error) => toast.error(err.message || "Erreur"),
   });
 
   const resetGenForm = () => {

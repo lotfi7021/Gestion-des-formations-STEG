@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Param,
   Req,
   UseGuards,
@@ -9,7 +10,6 @@ import {
   UploadedFile,
   Res,
   NotFoundException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -62,6 +62,12 @@ export class SessionDocumentController {
   @UseGuards(ManualJwtGuard)
   async findAll(@Param('sessionId') sessionId: string, @Req() req: any) {
     return this.docService.findAll(sessionId, req.user.sub);
+  }
+
+  @Delete(':id')
+  @UseGuards(ManualJwtGuard)
+  async remove(@Param('sessionId') _sessionId: string, @Param('id') id: string, @Req() req: any) {
+    return this.docService.remove(id, req.user.sub);
   }
 
   @Get(':id/download')

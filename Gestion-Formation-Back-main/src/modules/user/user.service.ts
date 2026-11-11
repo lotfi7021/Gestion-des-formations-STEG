@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, IsNull } from 'typeorm';
+import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from '../../entities/user.entity';
 import { Entreprise } from '../../entities/entreprise.entity';
@@ -20,14 +20,6 @@ export class UserService {
     private readonly notificationService: NotificationService,
   ) {}
 
-  async resolveCabinetId(email?: string): Promise<string | undefined> {
-    if (!email) return undefined;
-    const u = await this.userRepository.findOne({ where: { email } });
-    const uid = u?.id;
-    if (uid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid)) return uid;
-    return undefined;
-  }
-
   private async ensureEmailNotTaken(email: string, excludeId?: string): Promise<void> {
     const existing = await this.userRepository.findOne({
       where: { email },
@@ -35,49 +27,6 @@ export class UserService {
     if (existing && existing.id !== excludeId) {
       throw new ConflictException('Un compte existe déjà avec cet email');
     }
-  }
-
-  async createCabinet(dto: {
-    nomCabinet: string;
-    email: string;
-    telephone?: string;
-  }): Promise<User> {
-    await this.ensureEmailNotTaken(dto.email);
-
-    const tempPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-2).toUpperCase();
-    const hashedPassword = await bcrypt.hash(tempPassword, 10);
-
-    const username = dto.email.split('@')[0].replace(/[^a-zA-Z0-9._-]/g, '_');
-
-    const user = this.userRepository.create({
-      username,
-      email: dto.email,
-      password: hashedPassword,
-      role: UserRole.CABINET,
-      isActive: true,
-      nom: dto.nomCabinet,
-      prenom: '',
-      telephone: dto.telephone,
-    });
-    const saved = await this.userRepository.save(user);
-
-    await this.mailService.send({
-      to: saved.email,
-      subject: 'Bienvenue sur steg_form — Vos identifiants de connexion',
-      html: this.welcomeEmailHtml(saved, tempPassword, 'cabinet'),
-    });
-
-    const admin = await this.userRepository.findOne({ where: { role: UserRole.ADMIN } });
-    if (admin) {
-      await this.notificationService.create({
-        type: NotificationType.NOUVEL_INSCRIT,
-        titre: `Nouveau cabinet : ${saved.nom}`,
-        message: `${saved.nom} (${saved.email}) a été ajouté comme cabinet de formation.`,
-        userId: admin.id,
-      });
-    }
-
-    return saved;
   }
 
   async createFormateur(dto: {
@@ -90,16 +39,8 @@ export class UserService {
     biographie?: string;
     disponibilites?: { jour: string; heureDebut: string; heureFin: string }[];
     cvUrl?: string;
-    cabinetId?: string;
   }): Promise<User> {
-    const fromCabinet = !!dto.cabinetId;
-
     const existing = await this.userRepository.findOne({ where: { email: dto.email } });
-
-    let cabinet: User | undefined;
-    if (dto.cabinetId) {
-      cabinet = await this.userRepository.findOneBy({ id: dto.cabinetId });
-    }
 
     if (existing) {
       existing.nom = dto.nom;
@@ -111,16 +52,13 @@ export class UserService {
       existing.disponibilites = dto.disponibilites;
       existing.cvUrl = dto.cvUrl;
       existing.role = UserRole.FORMATEUR;
-      existing.cabinet = cabinet || existing.cabinet;
       const saved = await this.userRepository.save(existing);
 
-      if (!fromCabinet) {
-        await this.mailService.send({
-          to: saved.email,
-          subject: 'Mise à jour — Compte formateur steg_form',
-          html: `<p>Bonjour ${saved.prenom},<br>Votre compte a été mis à jour en tant que formateur.</p>`,
-        });
-      }
+      await this.mailService.send({
+        to: saved.email,
+        subject: 'Mise à jour — Compte formateur steg_form',
+        html: `<p>Bonjour ${saved.prenom},<br>Votre compte a été mis à jour en tant que formateur.</p>`,
+      });
 
       return saved;
     }
@@ -144,17 +82,14 @@ export class UserService {
       biographie: dto.biographie,
       disponibilites: dto.disponibilites,
       cvUrl: dto.cvUrl,
-      cabinet: cabinet || undefined,
     });
     const saved = await this.userRepository.save(user);
 
-    if (!fromCabinet) {
-      await this.mailService.send({
-        to: saved.email,
-        subject: 'Bienvenue sur steg_form — Vos identifiants de connexion',
-        html: this.welcomeEmailHtml(saved, tempPassword, 'formateur'),
-      });
-    }
+    await this.mailService.send({
+      to: saved.email,
+      subject: 'Bienvenue sur steg_form — Vos identifiants de connexion',
+      html: this.welcomeEmailHtml(saved, tempPassword, 'formateur'),
+    });
 
     const admin = await this.userRepository.findOne({ where: { role: UserRole.ADMIN } });
     if (admin) {
@@ -228,29 +163,15 @@ export class UserService {
     return saved;
   }
 
-  async findAllFormateurs(cabinetId?: string, all?: boolean): Promise<User[]> {
-    const where: any = { role: UserRole.FORMATEUR };
-    if (all) {
-      // return all formateurs (admin KPI use case)
-    } else if (cabinetId) {
-      where.cabinetId = cabinetId;
-    } else {
-      where.cabinetId = IsNull();
-    }
+  async findAllFormateurs(): Promise<User[]> {
     const formateurs = await this.userRepository.find({
-      where,
-      relations: { entreprise: true, evaluationsRecues: true, cabinet: true },
+      where: { role: UserRole.FORMATEUR },
+      relations: { entreprise: true, evaluationsRecues: true },
     });
     return formateurs.map((f) => {
       const notes = f.evaluationsRecues?.filter((e) => e.note != null).map((e) => Number(e.note)) || [];
       f.noteGlobale = notes.length ? parseFloat((notes.reduce((a, b) => a + b, 0) / notes.length).toFixed(2)) : 0;
       return f;
-    });
-  }
-
-  async findAllCabinets(): Promise<User[]> {
-    return this.userRepository.find({
-      where: { role: UserRole.CABINET },
     });
   }
 
@@ -302,11 +223,6 @@ export class UserService {
 
   async cloneFormateurForPlatform(id: string): Promise<User> {
     const original = await this.findOne(id);
-    let cabinetName: string | null = null;
-    if (original.cabinetId) {
-      const cabinet = await this.userRepository.findOne({ where: { id: original.cabinetId }, select: { nom: true } });
-      cabinetName = cabinet?.nom ?? null;
-    }
     const baseEmail = original.email;
     let newEmail = baseEmail;
     let suffix = 0;
@@ -336,9 +252,6 @@ export class UserService {
       modeleCnfcppUrl: original.modeleCnfcppUrl,
       feuillePresenceUrl: original.feuillePresenceUrl,
       attestationUrl: original.attestationUrl,
-      clonedFromId: id,
-      clonedFromCabinetId: original.cabinetId,
-      clonedFromCabinetName: cabinetName,
     });
     const saved = await this.userRepository.save(clone);
 
@@ -373,23 +286,6 @@ export class UserService {
     const user = await this.findOne(id);
     (user as any)[field] = url;
     return this.userRepository.save(user);
-  }
-
-  private async generateIdentifiant(): Promise<string> {
-    const year = new Date().getFullYear().toString();
-    const [last] = await this.userRepository.find({
-      where: { identifiant: Like(`${year}STG%`) },
-      order: { identifiant: 'DESC' },
-      take: 1,
-    });
-
-    let nextNum = 1;
-    if (last?.identifiant) {
-      const match = last.identifiant.match(/(\d+)$/);
-      if (match) nextNum = parseInt(match[1]) + 1;
-    }
-
-    return `${year}STG${nextNum.toString().padStart(3, '0')}`;
   }
 
   private welcomeEmailHtml(user: User, tempPassword: string, role: string): string {

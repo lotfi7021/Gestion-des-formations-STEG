@@ -16,7 +16,6 @@ import { NotificationType } from '../../common/enums';
 @Injectable()
 export class AuthService {
   private readonly accessTokenExpiry = '15m';
-  private readonly refreshTokenExpiry = '7d';
 
   constructor(
     @InjectRepository(User)

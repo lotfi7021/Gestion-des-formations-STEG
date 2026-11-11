@@ -3,7 +3,6 @@ import { AiService } from './ai.service';
 import { GenerateSessionSummaryDto } from './dto/generate-session-summary.dto';
 import { GenerateCertificateTextDto } from './dto/generate-certificate-text.dto';
 import { ManualJwtGuard } from '../auth/guards/manual-jwt.guard';
-import { CabinetOrAdminGuard } from '../auth/guards/cabinet-or-admin.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 
 /**
@@ -17,10 +16,10 @@ export class AiController {
 
   /**
    * POST /ai/sessions/:id/summary
-   * Accessible aux admin, formateurs et cabinets.
+   * Accessible aux admin et formateurs.
    */
   @Post('sessions/:id/summary')
-  @UseGuards(ManualJwtGuard, CabinetOrAdminGuard)
+  @UseGuards(ManualJwtGuard, AdminGuard)
   generateSessionSummary(
     @Param('id') sessionId: string,
     @Body() dto: GenerateSessionSummaryDto,

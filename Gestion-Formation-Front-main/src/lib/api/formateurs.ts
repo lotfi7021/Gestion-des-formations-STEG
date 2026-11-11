@@ -1,4 +1,6 @@
 import { api, API_BASE } from "./client";
+import type { Evaluation } from "./evaluations";
+import type { SessionRef } from "./types";
 
 export type Formateur = {
   id: string;
@@ -18,19 +20,14 @@ export type Formateur = {
   noteGlobale: number;
   role: string;
   avatarUrl?: string;
-  clonedFromId?: string;
-  clonedFromCabinetId?: string;
-  clonedFromCabinetName?: string;
-  sessionsAsFormateur: any[];
-  evaluationsRecues: any[];
+  sessionsAsFormateur: SessionRef[];
+  evaluationsRecues: Evaluation[];
   createdAt: string;
   updatedAt: string;
 };
 
-export async function getFormateurs(cabinetId?: string, all?: boolean): Promise<Formateur[]> {
+export async function getFormateurs(): Promise<Formateur[]> {
   const params = new URLSearchParams();
-  if (cabinetId) params.set("cabinetId", cabinetId);
-  if (all) params.set("all", "true");
   const qs = params.toString();
   return api.get<Formateur[]>(`/formateurs${qs ? `?${qs}` : ""}`);
 }

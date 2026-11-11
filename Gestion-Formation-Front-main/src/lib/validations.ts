@@ -14,7 +14,7 @@ export const registerSchema = z
     email: z.string().email("Email invalide"),
     password: z.string().min(6, "Minimum 6 caractères"),
     confirmPassword: z.string(),
-    role: z.enum(["participant", "formateur", "cabinet"]),
+    role: z.enum(["participant", "formateur"]),
   })
   .refine((d) => d.password === d.confirmPassword, {
     message: "Les mots de passe ne correspondent pas",

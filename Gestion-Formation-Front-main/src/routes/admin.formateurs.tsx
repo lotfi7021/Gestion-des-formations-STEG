@@ -86,29 +86,22 @@ function AdminFormateurs() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [pendingDocs, setPendingDocs] = useState<Record<string, File>>({});
   const [detailFormateur, setDetailFormateur] = useState<Formateur | null>(null);
-  const [originFilter, setOriginFilter] = useState<"all" | "platform" | "cabinet">("all");
   const [search, setSearch] = useState("");
 
   const { data: formateurs, isLoading } = useQuery({
     queryKey: ["formateurs"],
-    queryFn: getFormateurs,
+    queryFn: () => getFormateurs(),
   });
-  const filtered = (formateurs || [])
-    .filter((f) => {
-      if (originFilter === "cabinet") return !!f.clonedFromCabinetId;
-      if (originFilter === "platform") return !f.clonedFromCabinetId;
-      return true;
-    })
-    .filter((f) => {
-      if (!search) return true;
-      const q = search.toLowerCase();
-      return (
-        f.nom.toLowerCase().includes(q) ||
-        f.prenom.toLowerCase().includes(q) ||
-        f.email.toLowerCase().includes(q) ||
-        (f.specialites || "").toLowerCase().includes(q)
-      );
-    });
+  const filtered = (formateurs || []).filter((f) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      f.nom.toLowerCase().includes(q) ||
+      f.prenom.toLowerCase().includes(q) ||
+      f.email.toLowerCase().includes(q) ||
+      (f.specialites || "").toLowerCase().includes(q)
+    );
+  });
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -407,19 +400,9 @@ function AdminFormateurs() {
               className="h-8 rounded-md border border-border bg-background px-3 text-xs outline-none focus:border-primary"
             />
             <span className="text-xs font-medium text-muted-foreground">Origine :</span>
-            {(["all", "platform", "cabinet"] as const).map((o) => (
-              <button
-                key={o}
-                onClick={() => setOriginFilter(o)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  originFilter === o
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                }`}
-              >
-                {o === "all" ? "Tous" : o === "platform" ? "Plateforme" : "Cabinet"}
-              </button>
-            ))}
+            <span className="rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">
+              Plateforme
+            </span>
           </div>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filtered?.length === 0 && (
@@ -481,11 +464,6 @@ function AdminFormateurs() {
                   <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
                     Disponible
                   </span>
-                  {t.clonedFromCabinetId && (
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
-                      Issu de {t.clonedFromCabinetName || "cabinet"}
-                    </span>
-                  )}
                   <a
                     href={`mailto:${t.email}`}
                     className="ml-auto inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs hover:bg-secondary"
@@ -519,11 +497,6 @@ function AdminFormateurs() {
                 <p className="text-sm font-normal text-muted-foreground">
                   {detailFormateur?.email}
                 </p>
-                {detailFormateur?.clonedFromCabinetId && (
-                  <span className="mt-1 inline-block rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
-                    Issu de {detailFormateur?.clonedFromCabinetName || "cabinet"}
-                  </span>
-                )}
               </div>
             </DialogTitle>
           </DialogHeader>

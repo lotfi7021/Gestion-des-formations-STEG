@@ -57,8 +57,8 @@ function InscriptionPage() {
         role: form.role,
       });
       setSuccess(true);
-    } catch (err: any) {
-      setErrors({ general: err.message || "Erreur lors de l'inscription" });
+    } catch (err) {
+      setErrors({ general: err instanceof Error ? err.message : "Erreur lors de l'inscription" });
     } finally {
       setLoading(false);
     }
@@ -161,7 +161,7 @@ function InscriptionPage() {
             />
             <h1 className="mt-4 font-display text-4xl">Créer un compte</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Inscrivez-vous en tant que participant, formateur ou cabinet
+              Inscrivez-vous en tant que participant ou formateur
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-8">
@@ -220,7 +220,6 @@ function InscriptionPage() {
                   <SelectContent>
                     <SelectItem value="participant">Participant</SelectItem>
                     <SelectItem value="formateur">Formateur</SelectItem>
-                    <SelectItem value="cabinet">Cabinet</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -76,9 +76,7 @@ function ProfilPage() {
       ? "Administrateur"
       : user?.role === "formateur"
         ? "Formateur"
-        : user?.role === "cabinet"
-          ? "Cabinet"
-          : "Participant";
+        : "Participant";
 
   const avatarMutation = useMutation({
     mutationFn: (file: File) => uploadAvatar(file),
@@ -301,7 +299,7 @@ function ProfilPage() {
 function MesFormations() {
   const { data: sessions, isLoading } = useQuery({
     queryKey: ["my-sessions"],
-    queryFn: getMySessions,
+    queryFn: () => getMySessions(),
   });
 
   return (

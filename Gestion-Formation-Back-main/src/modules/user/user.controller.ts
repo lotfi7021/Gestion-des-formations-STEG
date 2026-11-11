@@ -30,18 +30,6 @@ export class UserController {
     return this.userService.createParticipant(dto);
   }
 
-  @UseGuards(ManualJwtGuard, AdminGuard)
-  @Get('cabinets')
-  findCabinets() {
-    return this.userService.findAllCabinets();
-  }
-
-  @UseGuards(ManualJwtGuard, AdminGuard)
-  @Post('cabinets')
-  createCabinet(@Body() dto: { nomCabinet: string; email: string; telephone?: string }) {
-    return this.userService.createCabinet(dto);
-  }
-
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.userService.findOne(id);

@@ -57,10 +57,10 @@ export function ChatBot() {
     try {
       const res = await api.post<{ answer: string }>("/chatbot/ask", { question: q });
       setMessages((prev) => [...prev, { role: "bot", text: res.answer }]);
-    } catch (err: any) {
+    } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { role: "bot", text: err.message || "Erreur de connexion." },
+        { role: "bot", text: err instanceof Error ? err.message : "Erreur de connexion." },
       ]);
     } finally {
       setLoading(false);

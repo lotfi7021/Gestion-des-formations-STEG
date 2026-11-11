@@ -2,8 +2,6 @@ import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nest
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { join } from 'path';
-import * as fs from 'fs';
 
 import { Session } from '../../entities/session.entity';
 import { Certificate } from '../../entities/certificate.entity';
@@ -14,10 +12,7 @@ import { Inscription } from '../../entities/inscription.entity';
 import { Formation } from '../../entities/formation.entity';
 import { PresenceStatus } from '../../common/enums/presence-status.enum';
 import { AiTextResponse } from './dto/ai-response.dto';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Types internes
-// ─────────────────────────────────────────────────────────────────────────────
+import { RagService, RagChunk } from './rag/rag.service';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constantes
@@ -25,14 +20,24 @@ import { AiTextResponse } from './dto/ai-response.dto';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'qwen/qwen3.8-27b';
-// Même modèle pour le RAG — on compense par un chunking agressif
-const GROQ_RAG_MODEL = 'qwen/qwen3.8-27b';
+
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 2000;
+/** Timeout par requête HTTP vers Groq (ms). */
+const REQUEST_TIMEOUT_MS = 30_000;
 
-// 3500 chars ≈ ~875 tokens de contenu. Avec le prompt système + question ≈ ~2000 tokens total,
-// bien sous la limite de 7000 TPM du tier gratuit Groq.
-const RAG_MAX_CHARS = 3_500;
+/** Durée du cache des résumés (ms) — invalidé si les documents changent. */
+const SUMMARY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Instructions système communes à tous les prompts RAG.
+ * Langue, ton, format, interdiction d'halluciner.
+ */
+const RAG_SYSTEM_RULES = `Règles impératives :
+- Réponds UNIQUEMENT en français, dans un ton professionnel et pédagogique.
+- Base-toi EXCLUSIVEMENT sur le contexte fourni ci-dessous. N'utilise JAMAIS tes connaissances générales.
+- Si l'information n'est pas dans le contexte, déclare-le explicitement plutôt que d'inventer.
+- Cite tes sources sous la forme (Document, page X) pour chaque affirmation issue d'un document.`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Service
@@ -42,8 +47,20 @@ const RAG_MAX_CHARS = 3_500;
 export class AiService {
   private readonly logger = new Logger(AiService.name);
 
+  /**
+   * Cache des résumés générés : clé = formationId ou sessionId,
+   * valeur = { réponse, empreinte des documents, date }.
+   * Invalidation : TTL 24h OU changement des documents de session
+   * (upload/suppression → nouvelle empreinte).
+   */
+  private readonly summaryCache = new Map<
+    string,
+    { response: AiTextResponse; docsFingerprint: string; createdAt: number }
+  >();
+
   constructor(
     private readonly configService: ConfigService,
+    private readonly ragService: RagService,
 
     @InjectRepository(Session)
     private readonly sessionRepository: Repository<Session>,
@@ -68,72 +85,41 @@ export class AiService {
   ) {}
 
   // ───────────────────────────────────────────────────────────────────────────
-  // PUBLIC : Résumé de session
+  // PUBLIC : Résumé de session (données structurées, pas de RAG)
   // ───────────────────────────────────────────────────────────────────────────
 
-  /**
-   * Génère un résumé synthétique d'une session à partir de ses données :
-   * présences, évaluations, documents et contenu de la formation.
-   */
   async generateSessionSummary(
     sessionId: string,
     additionalContext?: string,
   ): Promise<AiTextResponse> {
-    // 1. Charger la session avec toutes ses relations utiles
+    const started = Date.now();
     const session = await this.sessionRepository.findOne({
       where: { id: sessionId },
-      relations: {
-        formation: true,
-        formateurs: true,
-        participants: true,
-        employes: true,
-      },
+      relations: { formation: true, formateurs: true, participants: true, employes: true },
     });
     if (!session) throw new NotFoundException(`Session #${sessionId} introuvable`);
 
-    // 2. Charger présences, évaluations, documents
     const [presences, evaluations, documents] = await Promise.all([
-      this.presenceRepository.find({
-        where: { session: { id: sessionId } },
-        relations: { user: true },
-      }),
+      this.presenceRepository.find({ where: { session: { id: sessionId } }, relations: { user: true } }),
       this.evaluationRepository.find({
         where: { session: { id: sessionId } },
         relations: { participant: true, formateur: true },
       }),
-      this.sessionDocumentRepository.find({
-        where: { sessionId },
-      }),
+      this.sessionDocumentRepository.find({ where: { sessionId } }),
     ]);
 
-    // 3. Calculer le taux de présence
-    // Le taux = nb de lignes PRESENT / nb total de lignes de présence
-    // (chaque participant a une ligne par jour de session)
     const totalLignes = presences.length;
-    const presents = presences.filter(
-      (p) => p.statutFormation === PresenceStatus.PRESENT,
-    ).length;
-    const totalParticipants =
-      (session.participants?.length ?? 0) + (session.employes?.length ?? 0);
-    const tauxPresence =
-      totalLignes > 0
-        ? Math.round((presents / totalLignes) * 100)
-        : 0;
+    const presents = presences.filter((p) => p.statutFormation === PresenceStatus.PRESENT).length;
+    const totalParticipants = (session.participants?.length ?? 0) + (session.employes?.length ?? 0);
+    const tauxPresence = totalLignes > 0 ? Math.round((presents / totalLignes) * 100) : 0;
 
-    // 4. Agréger les points forts / à améliorer des évaluations
-    const commentaires = evaluations
-      .map((e) => e.commentaire)
-      .filter((c): c is string => Boolean(c));
-    const pointsForts = evaluations
-      .map((e) => e.pointsForts)
-      .filter((p): p is string => Boolean(p));
+    const commentaires = evaluations.map((e) => e.commentaire).filter((c): c is string => Boolean(c));
+    const pointsForts = evaluations.map((e) => e.pointsForts).filter((p): p is string => Boolean(p));
     const pointsAmeliorer = evaluations
       .map((e) => e.pointsAmeliorer)
       .filter((p): p is string => Boolean(p));
-
     const notesMoyennes = this.computeEvaluationAverages(evaluations);
 
-    // 5. Construire le contexte formaté pour le prompt
     const context = this.buildSessionContext({
       session,
       tauxPresence,
@@ -152,49 +138,26 @@ Tu génères des résumés synthétiques et professionnels de sessions de format
 Ton texte doit être structuré, factuel et facilement réutilisable dans un rapport ou un compte-rendu officiel.
 Utilise un style formel, sans émojis. Maximum 400 mots.`;
 
-    const userPrompt = `Génère un résumé de session de formation à partir des données suivantes :
+    const userPrompt = `Génère un résumé de session de formation à partir des données suivantes :\n\n${context}\n\nLe résumé doit couvrir :\n1. Un aperçu général de la session (formation, dates, formateur, lieu)\n2. Le taux de présence et son interprétation\n3. Les points forts remontés par les participants\n4. Les axes d'amélioration identifiés\n5. Une conclusion sur la qualité globale de la session`;
 
-${context}
+    const fallbackText = this.buildSessionSummaryFallback(session, tauxPresence, pointsForts, pointsAmeliorer);
 
-Le résumé doit couvrir :
-1. Un aperçu général de la session (formation, dates, formateur, lieu)
-2. Le taux de présence et son interprétation
-3. Les points forts remontés par les participants
-4. Les axes d'amélioration identifiés
-5. Une conclusion sur la qualité globale de la session`;
-
-    const fallbackText = this.buildSessionSummaryFallback(
-      session,
-      tauxPresence,
-      pointsForts,
-      pointsAmeliorer,
-    );
-
-    return this.callClaude(systemPrompt, userPrompt, fallbackText);
+    const result = await this.callGroq(systemPrompt, userPrompt, fallbackText);
+    return { ...result, latencyMs: Date.now() - started };
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // PUBLIC : Texte de certificat personnalisé
+  // PUBLIC : Texte de certificat — sortie JSON stricte
   // ───────────────────────────────────────────────────────────────────────────
 
-  /**
-   * Génère un texte de certificat personnalisé pour un participant donné
-   * à partir de son inscription et des données de la session/formation.
-   */
   async generateCertificateText(
     certificateId: string,
     additionalMention?: string,
   ): Promise<AiTextResponse> {
-    // 1. Charger le certificat avec ses relations
+    const started = Date.now();
     const certificate = await this.certificateRepository.findOne({
       where: { id: certificateId },
-      relations: {
-        user: true,
-        formation: true,
-        session: {
-          formateurs: true,
-        },
-      },
+      relations: { user: true, formation: true, session: { formateurs: true } },
     });
     if (!certificate) throw new NotFoundException(`Certificat #${certificateId} introuvable`);
 
@@ -203,38 +166,25 @@ Le résumé doit couvrir :
       throw new NotFoundException('Données du certificat incomplètes (user, formation ou session manquant)');
     }
 
-    // 2. Charger les présences du participant pour calculer son taux d'assiduité
     const presences = await this.presenceRepository.find({
       where: { session: { id: session.id }, user: { id: user.id } },
     });
     const totalJours = presences.length;
-    const joursPresent = presences.filter(
-      (p) => p.statutFormation === PresenceStatus.PRESENT,
-    ).length;
-    const tauxAssiduite =
-      totalJours > 0 ? Math.round((joursPresent / totalJours) * 100) : 100;
+    const joursPresent = presences.filter((p) => p.statutFormation === PresenceStatus.PRESENT).length;
+    const tauxAssiduite = totalJours > 0 ? Math.round((joursPresent / totalJours) * 100) : 100;
 
-    // 3. Charger l'évaluation du participant (commentaire, note)
     const evaluation = await this.evaluationRepository.findOne({
       where: { session: { id: session.id }, participant: { id: user.id } },
     });
 
-    // 4. Construire le prompt
-    const formateurs = (session.formateurs ?? [])
-      .map((f) => `${f.prenom} ${f.nom}`)
-      .join(', ') || 'Non renseigné';
-
+    const formateurs =
+      (session.formateurs ?? []).map((f) => `${f.prenom} ${f.nom}`).join(', ') || 'Non renseigné';
     const dateDebut = new Date(session.dateDebut).toLocaleDateString('fr-FR', {
       day: 'numeric', month: 'long', year: 'numeric',
     });
     const dateFin = new Date(session.dateFin).toLocaleDateString('fr-FR', {
       day: 'numeric', month: 'long', year: 'numeric',
     });
-
-    const systemPrompt = `Tu es un assistant expert en rédaction de certificats de formation professionnelle pour la plateforme StirForma.
-Tu génères des textes de certificat personnalisés, formels et valorisants en français.
-Le texte doit être court (150-200 mots), solennel et mettre en valeur les compétences acquises.
-Ne commence pas par "Nous certifions que" car ce préambule est déjà imprimé sur le certificat.`;
 
     const mentionAssiduite =
       tauxAssiduite >= 90
@@ -243,7 +193,18 @@ Ne commence pas par "Nous certifions que" car ce préambule est déjà imprimé 
           ? 'avec une assiduité satisfaisante'
           : 'ayant suivi la formation';
 
-    const userPrompt = `Génère le corps d'un certificat de formation professionnelle personnalisé pour :
+    const systemPrompt = `Tu es un expert en rédaction de certificats de formation professionnelle pour la plateforme StirForma.
+Tu génères des textes de certificat personnalisés, formels et valorisants, en français.
+
+FORMAT DE SORTIE OBLIGATOIRE — renvoie UNIQUEMENT un objet JSON valide, sans texte avant ni après, conforme à ce schéma :
+{
+  "titre": "Certificat de Formation",           // string : titre du certificat
+  "corps": "texte du certificat de 150 à 200 mots",  // string : corps solennel, sans le préambule "Nous certifions que"
+  "mention": "ex: avec une assiduité exemplaire",    // string : mention d'assiduité courte
+  "competences": ["compétence 1", "compétence 2"]    // string[] : 2 à 4 compétences acquises
+}`;
+
+    const userPrompt = `Génère le JSON du certificat pour :
 
 Participant : ${user.prenom} ${user.nom}
 Formation : "${formation.titre}"
@@ -259,32 +220,256 @@ Note obtenue : ${certificate.noteObtenue != null ? `${certificate.noteObtenue}/2
 Commentaire du participant : ${evaluation?.commentaire || 'Aucun'}
 ${additionalMention ? `Mention complémentaire : ${additionalMention}` : ''}
 
-Le texte doit :
+Le corps doit :
 1. Féliciter ${user.prenom} ${user.nom} pour l'achèvement de la formation
 2. Reformuler les compétences acquises de manière valorisante (à partir des objectifs et du programme)
-3. Mentionner le taux d'assiduité : ${mentionAssiduite}
-4. Se terminer par une formule encourageante pour la suite de sa carrière professionnelle`;
+3. Mentionner l'assiduité : ${mentionAssiduite}
+4. Se terminer par une formule encourageante pour la suite de sa carrière`;
 
     const fallbackText = this.buildCertificateFallback(
-      user,
-      formation,
-      session,
-      tauxAssiduite,
-      certificate.noteObtenue,
+      user, formation, session, tauxAssiduite, certificate.noteObtenue,
     );
 
-    return this.callClaude(systemPrompt, userPrompt, fallbackText);
+    const result = await this.callGroq(systemPrompt, userPrompt, fallbackText, GROQ_MODEL, {
+      temperature: 0.7,
+      maxTokens: 1024,
+      jsonMode: true,
+    });
+
+    // Extraction + validation du JSON renvoyé par le modèle
+    if (!result.isFallback) {
+      const parsed = this.parseJsonOutput(result.text);
+      if (parsed && typeof parsed.corps === 'string' && parsed.corps.length > 30) {
+        const formatted = this.formatCertificateJson(parsed);
+        return { text: formatted, isFallback: false, latencyMs: Date.now() - started };
+      }
+      // JSON invalide ou incomplet → on tente d'utiliser le texte brut
+      this.logger.warn('JSON certificat invalide — usage du texte brut ou fallback');
+      if (result.text && result.text.length > 30) {
+        return { text: result.text, isFallback: false, latencyMs: Date.now() - started };
+      }
+      return { text: fallbackText, isFallback: true, latencyMs: Date.now() - started };
+    }
+
+    return { ...result, latencyMs: Date.now() - started };
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // PRIVATE : Appel API Groq avec retry
+  // PUBLIC : Résumé IA d'une formation (RAG + cache)
   // ───────────────────────────────────────────────────────────────────────────
 
-  private async callClaude(
+  async generateFormationSummary(formationId: string, userId: string): Promise<AiTextResponse> {
+    const started = Date.now();
+    const formation = await this.formationRepository.findOne({
+      where: { id: formationId },
+      relations: { sessions: true },
+    });
+    if (!formation) throw new NotFoundException(`Formation #${formationId} introuvable`);
+
+    await this.assertParticipantEnrolled(formationId, userId);
+
+    const sessionIds = (formation.sessions ?? []).map((s) => s.id);
+    const docs =
+      sessionIds.length > 0
+        ? await this.sessionDocumentRepository
+            .createQueryBuilder('doc')
+            .where('doc.sessionId IN (:...ids)', { ids: sessionIds })
+            .getMany()
+        : [];
+
+    if (docs.length === 0) {
+      return {
+        text: "Aucun contenu disponible pour cette formation. Aucun document de session n'a été partagé pour le moment.",
+        isFallback: true,
+        notFound: true,
+        latencyMs: Date.now() - started,
+      };
+    }
+
+    // Cache : clé formation + empreinte des documents
+    const fingerprint = this.computeDocsFingerprint(docs);
+    const cacheKey = `summary:formation:${formationId}`;
+    const cached = this.summaryCache.get(cacheKey);
+    if (cached && cached.docsFingerprint === fingerprint && Date.now() - cached.createdAt < SUMMARY_CACHE_TTL_MS) {
+      this.logger.log(`Cache HIT résumé formation ${formationId}`);
+      return { ...cached.response, cached: true, latencyMs: Date.now() - started };
+    }
+
+    const rag = await this.ragService.buildContext(docs);
+    if (!rag.context) {
+      return {
+        text: "Aucun contenu exploitable dans les documents de cette formation (PDF illisible ou vide).",
+        isFallback: true,
+        notFound: true,
+        latencyMs: Date.now() - started,
+      };
+    }
+
+    const systemPrompt = `Tu es un assistant pédagogique expert pour la plateforme StirForma.
+Tu génères des résumés structurés et clairs de formations professionnelles en français.
+${RAG_SYSTEM_RULES}`;
+
+    const userPrompt = `Génère un résumé structuré de la formation "${formation.titre}" à partir des extraits ci-dessous.
+
+Le résumé doit contenir :
+1. **Objectifs pédagogiques** — ce que le participant apprend
+2. **Points clés du contenu** — les thèmes et concepts principaux abordés
+3. **Compétences visées** — ce que le participant sera capable de faire à l'issue
+4. **Synthèse** — 2-3 phrases résumant l'essentiel
+
+Informations de la formation :
+- Titre : ${formation.titre}
+- Catégorie : ${formation.categorie || 'Non renseignée'}
+- Durée : ${formation.dureeEnJours ?? '?'} jour(s) / ${formation.dureeEnHeures ?? '?'} heure(s)
+- Objectifs déclarés : ${formation.objectifs || 'Non renseignés'}
+- Programme : ${formation.programme || 'Non renseigné'}
+
+--- EXTRAITS DES DOCUMENTS DE SESSION ---
+${rag.context}
+--- FIN DES EXTRAITS ---`;
+
+    const fallback =
+      `Résumé de la formation "${formation.titre}" :\n\n` +
+      (formation.objectifs ? `**Objectifs :** ${formation.objectifs}\n\n` : '') +
+      (formation.programme ? `**Programme :** ${formation.programme}\n\n` : '') +
+      `Durée : ${formation.dureeEnJours ?? '?'} jour(s).`;
+
+    const result = await this.callGroq(systemPrompt, userPrompt, fallback, GROQ_MODEL);
+
+    const response: AiTextResponse = {
+      ...result,
+      sources: rag.chunks.map((c) => ({ document: c.document, page: c.page || undefined })),
+      latencyMs: Date.now() - started,
+    };
+
+    // Mise en cache
+    this.summaryCache.set(cacheKey, {
+      response,
+      docsFingerprint: fingerprint,
+      createdAt: Date.now(),
+    });
+
+    return response;
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // PUBLIC : Q&A RAG scopé à une formation — avec citations + confidence
+  // ───────────────────────────────────────────────────────────────────────────
+
+  async askFormationQuestion(
+    formationId: string,
+    question: string,
+    userId: string,
+  ): Promise<AiTextResponse> {
+    const started = Date.now();
+    const formation = await this.formationRepository.findOne({
+      where: { id: formationId },
+      relations: { sessions: true },
+    });
+    if (!formation) throw new NotFoundException(`Formation #${formationId} introuvable`);
+
+    await this.assertParticipantEnrolled(formationId, userId);
+
+    const sessionIds = (formation.sessions ?? []).map((s) => s.id);
+    const docs =
+      sessionIds.length > 0
+        ? await this.sessionDocumentRepository
+            .createQueryBuilder('doc')
+            .where('doc.sessionId IN (:...ids)', { ids: sessionIds })
+            .getMany()
+        : [];
+
+    if (docs.length === 0) {
+      return {
+        text: "Aucun contenu disponible pour cette formation. Je ne peux pas répondre à votre question sans documents de référence.",
+        isFallback: true,
+        notFound: true,
+        latencyMs: Date.now() - started,
+      };
+    }
+
+    // 1. Retrieval vectoriel (top-k configurable via AI_RAG_TOP_K)
+    const rag = await this.ragService.buildContext(docs, question);
+    if (!rag.context) {
+      return {
+        text: "Aucun contenu exploitable dans les documents de cette formation.",
+        isFallback: true,
+        notFound: true,
+        latencyMs: Date.now() - started,
+      };
+    }
+
+    // 2. Prompt structuré avec sortie JSON (citations + confiance)
+    const systemPrompt = `Tu es un assistant pédagogique pour la formation "${formation.titre}" sur la plateforme StirForma.
+${RAG_SYSTEM_RULES}
+
+FORMAT DE SORTIE OBLIGATOIRE — renvoie UNIQUEMENT un objet JSON valide, sans texte avant ni après :
+{
+  "reponse": "ta réponse en français, claire et pédagogique",
+  "trouve": true,                          // true si l'info est dans le contexte, false sinon
+  "confiance": "high",                     // "high", "medium" ou "low"
+  "sources": [ { "document": "nom.pdf", "page": 3 } ]   // documents/pages utilisés ([] si trouve=false)
+}`;
+
+    const userPrompt = `--- EXTRAITS DES DOCUMENTS DE FORMATION ---
+${rag.context}
+--- FIN DES EXTRAITS ---
+
+Question du participant : ${question}`;
+
+    // Fallback hors-ligne : recherche par mots-clés dans les chunks bruts
+    // pour donner au moins un extrait pertinent.
+    const fallback = this.buildRagKeywordFallback(rag.chunks, question, formation.titre);
+
+    const result = await this.callGroq(systemPrompt, userPrompt, fallback, GROQ_MODEL, {
+      jsonMode: true,
+      temperature: 0.3, // Q&A factuelle → peu créatif
+    });
+
+    if (result.isFallback) {
+      return { ...result, notFound: true, latencyMs: Date.now() - started };
+    }
+
+    // 3. Parse de la sortie JSON structurée
+    const parsed = this.parseJsonOutput(result.text);
+    if (!parsed || typeof parsed.reponse !== 'string') {
+      // Sortie non-JSON : on utilise le texte brut tel quel
+      this.logger.warn('Sortie Q&A non-JSON — usage du texte brut');
+      return {
+        text: result.text,
+        isFallback: false,
+        confidence: 'medium',
+        sources: rag.chunks.slice(0, 3).map((c) => ({ document: c.document, page: c.page || undefined })),
+        latencyMs: Date.now() - started,
+      };
+    }
+
+    const sources = Array.isArray(parsed.sources)
+      ? parsed.sources
+          .filter((s: any) => s && typeof s.document === 'string')
+          .map((s: any) => ({ document: s.document, page: typeof s.page === 'number' ? s.page : undefined }))
+      : rag.chunks.slice(0, 3).map((c) => ({ document: c.document, page: c.page || undefined }));
+
+    return {
+      text: parsed.reponse,
+      isFallback: false,
+      notFound: parsed.trouve === false,
+      confidence: ['high', 'medium', 'low'].includes(parsed.confiance) ? parsed.confiance : 'medium',
+      sources,
+      latencyMs: Date.now() - started,
+    };
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // PRIVATE : Appel Groq — retry/backoff, timeout, logs de monitoring
+  // ───────────────────────────────────────────────────────────────────────────
+
+  private async callGroq(
     systemPrompt: string,
     userPrompt: string,
     fallbackText: string,
     model: string = GROQ_MODEL,
+    opts?: { temperature?: number; maxTokens?: number; jsonMode?: boolean },
   ): Promise<AiTextResponse> {
     const apiKey = this.configService.get<string>('GROQ_API_KEY');
     if (!apiKey) {
@@ -292,55 +477,81 @@ Le texte doit :
       return { text: fallbackText, isFallback: true };
     }
 
-    const body = {
+    const body: Record<string, any> = {
       model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      temperature: 0.7,
-      max_tokens: 1024,
+      temperature: opts?.temperature ?? 0.7,
+      max_tokens: opts?.maxTokens ?? 1024,
     };
+    if (opts?.jsonMode) body.response_format = { type: 'json_object' };
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      const attemptStart = Date.now();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
       try {
         const response = await fetch(GROQ_API_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
+            Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify(body),
+          signal: controller.signal,
         });
 
         if (response.ok) {
           const data: any = await response.json();
           const text = data?.choices?.[0]?.message?.content?.trim();
-          if (text) return { text, isFallback: false };
-          this.logger.warn('Réponse Groq vide — fallback');
+          const elapsed = Date.now() - attemptStart;
+          if (text) {
+            // Log de monitoring : durée, modèle, usage tokens
+            this.logger.log(
+              `Groq OK ${model} ${elapsed}ms | usage: ${JSON.stringify(data?.usage ?? {})}`,
+            );
+            clearTimeout(timer);
+            return { text, isFallback: false };
+          }
+          this.logger.warn(`Réponse Groq vide (${elapsed}ms) — fallback`);
+          clearTimeout(timer);
           return { text: fallbackText, isFallback: true };
         }
 
         const errBody = await response.text().catch(() => '');
-        this.logger.warn(`Groq API erreur ${response.status}: ${errBody}`);
+        this.logger.warn(
+          `Groq erreur ${response.status} (tentative ${attempt + 1}/${MAX_RETRIES}): ${errBody.slice(0, 300)}`,
+        );
 
-        // Retry sur 429 (rate limit)
-        if (response.status === 429 && attempt < MAX_RETRIES - 1) {
+        // Retry sur 429 (rate limit) et 5xx (erreur serveur)
+        const retryable = response.status === 429 || response.status >= 500;
+        if (retryable && attempt < MAX_RETRIES - 1) {
           const delay = BASE_DELAY_MS * Math.pow(2, attempt);
           this.logger.log(`Retry ${attempt + 1}/${MAX_RETRIES - 1} dans ${delay}ms…`);
+          clearTimeout(timer);
           await new Promise((r) => setTimeout(r, delay));
           continue;
         }
 
+        clearTimeout(timer);
         this.logger.error(`Erreur Groq non récupérable (${response.status}) — fallback`);
         return { text: fallbackText, isFallback: true };
-
       } catch (err: any) {
-        this.logger.error(`Erreur réseau Groq (tentative ${attempt + 1}): ${err.message}`);
+        const elapsed = Date.now() - attemptStart;
+        // AbortError = timeout
+        const isTimeout = err?.name === 'AbortError';
+        this.logger.error(
+          `${isTimeout ? 'Timeout' : 'Erreur réseau'} Groq (tentative ${attempt + 1}/${MAX_RETRIES}, ${elapsed}ms): ${err?.message}`,
+        );
         if (attempt < MAX_RETRIES - 1) {
+          clearTimeout(timer);
           await new Promise((r) => setTimeout(r, BASE_DELAY_MS * Math.pow(2, attempt)));
           continue;
         }
+        clearTimeout(timer);
         return { text: fallbackText, isFallback: true };
       }
     }
@@ -349,8 +560,81 @@ Le texte doit :
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // PRIVATE : Helpers de construction de contexte
+  // PRIVATE : Helpers RAG / JSON / cache
   // ───────────────────────────────────────────────────────────────────────────
+
+  /** Parse un JSON potentiellement entouré de texte ou de blocs markdown. */
+  private parseJsonOutput(raw: string): any | null {
+    if (!raw) return null;
+    // 1. Tentative directe
+    try {
+      return JSON.parse(raw);
+    } catch {
+      // 2. Extraction du premier bloc {...} équilibré
+    }
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start !== -1 && end > start) {
+      try {
+        return JSON.parse(raw.slice(start, end + 1));
+      } catch {
+        // 3. Extraction depuis un bloc markdown ```json ... ```
+      }
+    }
+    const md = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (md) {
+      try {
+        return JSON.parse(md[1].trim());
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Fallback hors-ligne pour le Q&A : au lieu d'un message générique,
+   * renvoie les chunks les plus pertinents selon une recherche par mots-clés
+   * (scoring simple) pour que l'utilisateur ait au moins un extrait utile.
+   */
+  private buildRagKeywordFallback(chunks: RagChunk[], question: string, formationTitre: string): string {
+    if (chunks.length === 0) {
+      return `Le service IA est momentanément indisponible. Aucun extrait des documents de "${formationTitre}" n'a pu être récupéré.`;
+    }
+
+    const keywords = question
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length > 3);
+
+    const scored = chunks
+      .map((c) => {
+        const lower = c.text.toLowerCase();
+        const score = keywords.reduce((acc, kw) => acc + (lower.includes(kw) ? 1 : 0), 0);
+        return { c, score };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    const top = scored.slice(0, 2).filter((s) => s.score > 0);
+    const picked = top.length > 0 ? top : scored.slice(0, 1);
+
+    const extraits = picked
+      .map(
+        ({ c }) =>
+          `📄 ${c.document}${c.page ? ` (page ${c.page})` : ''} :\n« ${c.text.slice(0, 400).trim()}${c.text.length > 400 ? '…' : ''} »`,
+      )
+      .join('\n\n');
+
+    return `Le service IA est momentanément indisponible. Voici les extraits les plus pertinents trouvés dans les documents :\n\n${extraits}`;
+  }
+
+  /** Empreinte stable des documents (id + mtime) — change dès qu'un doc est ajouté/supprimé/modifié. */
+  private computeDocsFingerprint(docs: SessionDocument[]): string {
+    return docs
+      .map((d) => `${d.id}:${(d as any).createdAt ?? ''}`)
+      .sort()
+      .join('|');
+  }
 
   private buildSessionContext(params: {
     session: Session;
@@ -364,13 +648,13 @@ Le texte doit :
     documents: SessionDocument[];
     additionalContext?: string;
   }): string {
-    const { session, tauxPresence, totalParticipants, presents, commentaires,
-      pointsForts, pointsAmeliorer, notesMoyennes, documents, additionalContext } = params;
+    const {
+      session, tauxPresence, totalParticipants, presents, commentaires,
+      pointsForts, pointsAmeliorer, notesMoyennes, documents, additionalContext,
+    } = params;
 
-    const formateurs = (session.formateurs ?? [])
-      .map((f) => `${f.prenom} ${f.nom}`)
-      .join(', ') || 'Non renseigné';
-
+    const formateurs =
+      (session.formateurs ?? []).map((f) => `${f.prenom} ${f.nom}`).join(', ') || 'Non renseigné';
     const dateDebut = new Date(session.dateDebut).toLocaleDateString('fr-FR');
     const dateFin = new Date(session.dateFin).toLocaleDateString('fr-FR');
 
@@ -420,11 +704,12 @@ Le texte doit :
     return lines.join('\n');
   }
 
-  private computeEvaluationAverages(
-    evaluations: Evaluation[],
-  ): Record<string, number | null> {
+  private computeEvaluationAverages(evaluations: Evaluation[]): Record<string, number | null> {
     if (evaluations.length === 0) {
-      return { noteGlobale: null, noteContenu: null, notePedagogie: null, noteSupports: null, noteOrganisation: null };
+      return {
+        noteGlobale: null, noteContenu: null, notePedagogie: null,
+        noteSupports: null, noteOrganisation: null,
+      };
     }
 
     const avg = (values: (number | null | undefined)[]): number | null => {
@@ -435,15 +720,15 @@ Le texte doit :
 
     return {
       noteGlobale: avg(evaluations.map((e) => Number(e.note))),
-      noteContenu: avg(evaluations.map((e) => e.noteContenu != null ? Number(e.noteContenu) : null)),
-      notePedagogie: avg(evaluations.map((e) => e.notePedagogie != null ? Number(e.notePedagogie) : null)),
-      noteSupports: avg(evaluations.map((e) => e.noteSupports != null ? Number(e.noteSupports) : null)),
-      noteOrganisation: avg(evaluations.map((e) => e.noteOrganisation != null ? Number(e.noteOrganisation) : null)),
+      noteContenu: avg(evaluations.map((e) => (e.noteContenu != null ? Number(e.noteContenu) : null))),
+      notePedagogie: avg(evaluations.map((e) => (e.notePedagogie != null ? Number(e.notePedagogie) : null))),
+      noteSupports: avg(evaluations.map((e) => (e.noteSupports != null ? Number(e.noteSupports) : null))),
+      noteOrganisation: avg(evaluations.map((e) => (e.noteOrganisation != null ? Number(e.noteOrganisation) : null))),
     };
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // PRIVATE : Textes de fallback (si l'IA est indisponible)
+  // PRIVATE : Fallbacks structurés
   // ───────────────────────────────────────────────────────────────────────────
 
   private buildSessionSummaryFallback(
@@ -452,9 +737,8 @@ Le texte doit :
     pointsForts: string[],
     pointsAmeliorer: string[],
   ): string {
-    const formateurs = (session.formateurs ?? [])
-      .map((f) => `${f.prenom} ${f.nom}`)
-      .join(', ') || 'formateur non renseigné';
+    const formateurs =
+      (session.formateurs ?? []).map((f) => `${f.prenom} ${f.nom}`).join(', ') || 'formateur non renseigné';
     const dateDebut = new Date(session.dateDebut).toLocaleDateString('fr-FR');
     const dateFin = new Date(session.dateFin).toLocaleDateString('fr-FR');
     const titre = session.formation?.titre ?? 'formation';
@@ -467,12 +751,8 @@ Le texte doit :
       ``,
       `Taux de présence : ${tauxPresence}%.`,
       ``,
-      pointsForts.length > 0
-        ? `Points forts identifiés : ${pointsForts.slice(0, 3).join(' ; ')}.`
-        : '',
-      pointsAmeliorer.length > 0
-        ? `Axes d'amélioration : ${pointsAmeliorer.slice(0, 3).join(' ; ')}.`
-        : '',
+      pointsForts.length > 0 ? `Points forts identifiés : ${pointsForts.slice(0, 3).join(' ; ')}.` : '',
+      pointsAmeliorer.length > 0 ? `Axes d'amélioration : ${pointsAmeliorer.slice(0, 3).join(' ; ')}.` : '',
     ]
       .filter(Boolean)
       .join('\n');
@@ -514,126 +794,17 @@ Le texte doit :
       .join('\n');
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // PUBLIC : Résumé IA d'une formation (RAG sur documents de session)
-  // ───────────────────────────────────────────────────────────────────────────
-
-  async generateFormationSummary(formationId: string, userId: string): Promise<AiTextResponse> {
-    const formation = await this.formationRepository.findOne({
-      where: { id: formationId },
-      relations: { sessions: true },
-    });
-    if (!formation) throw new NotFoundException(`Formation #${formationId} introuvable`);
-
-    // Vérifier que l'utilisateur est bien inscrit à au moins une session
-    await this.assertParticipantEnrolled(formationId, userId);
-
-    // Récupérer tous les documents de toutes les sessions de cette formation
-    const sessionIds = (formation.sessions ?? []).map((s) => s.id);
-    const docs = sessionIds.length > 0
-      ? await this.sessionDocumentRepository
-          .createQueryBuilder('doc')
-          .where('doc.sessionId IN (:...ids)', { ids: sessionIds })
-          .getMany()
-      : [];
-
-    // Extraire le texte des documents PDF
-    const context = await this.extractTextFromDocuments(docs);
-
-    if (!context) {
-      return {
-        text: 'Aucun contenu disponible pour cette formation. Aucun document de session n\'a été partagé pour le moment.',
-        isFallback: true,
-      };
+  /** Transforme le JSON certificat en texte formaté pour le PDF/certificat. */
+  private formatCertificateJson(parsed: any): string {
+    const lines: string[] = [];
+    if (parsed.titre) lines.push(parsed.titre, ``);
+    if (parsed.corps) lines.push(parsed.corps.trim(), ``);
+    if (parsed.mention) lines.push(`Mention : ${parsed.mention}`, ``);
+    if (Array.isArray(parsed.competences) && parsed.competences.length > 0) {
+      lines.push(`Compétences validées :`, ...parsed.competences.map((c: string) => `• ${c}`));
     }
-
-    const systemPrompt = `Tu es un assistant pédagogique expert pour la plateforme StirForma.
-Tu génères des résumés structurés et clairs de formations professionnelles en français.
-Base-toi UNIQUEMENT sur les documents fournis. N'invente rien.`;
-
-    const userPrompt = `Génère un résumé structuré de la formation "${formation.titre}" à partir des documents ci-dessous.
-
-Le résumé doit contenir :
-1. **Objectifs pédagogiques** — ce que le participant apprend
-2. **Points clés du contenu** — les thèmes et concepts principaux abordés
-3. **Compétences visées** — ce que le participant sera capable de faire à l'issue
-4. **Synthèse** — 2-3 phrases résumant l'essentiel
-
-Informations de la formation :
-- Titre : ${formation.titre}
-- Catégorie : ${formation.categorie || 'Non renseignée'}
-- Durée : ${formation.dureeEnJours ?? '?'} jour(s) / ${formation.dureeEnHeures ?? '?'} heure(s)
-- Objectifs déclarés : ${formation.objectifs || 'Non renseignés'}
-- Programme : ${formation.programme || 'Non renseigné'}
-
---- DOCUMENTS DE SESSION ---
-${context}
---- FIN DES DOCUMENTS ---`;
-
-    const fallback = `Résumé de la formation "${formation.titre}" :\n\n` +
-      (formation.objectifs ? `**Objectifs :** ${formation.objectifs}\n\n` : '') +
-      (formation.programme ? `**Programme :** ${formation.programme}\n\n` : '') +
-      `Durée : ${formation.dureeEnJours ?? '?'} jour(s).`;
-
-    return this.callClaude(systemPrompt, userPrompt, fallback, GROQ_RAG_MODEL);
+    return lines.join('\n').trim();
   }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // PUBLIC : Q&A RAG scopé à une formation
-  // ───────────────────────────────────────────────────────────────────────────
-
-  async askFormationQuestion(
-    formationId: string,
-    question: string,
-    userId: string,
-  ): Promise<AiTextResponse> {
-    const formation = await this.formationRepository.findOne({
-      where: { id: formationId },
-      relations: { sessions: true },
-    });
-    if (!formation) throw new NotFoundException(`Formation #${formationId} introuvable`);
-
-    await this.assertParticipantEnrolled(formationId, userId);
-
-    const sessionIds = (formation.sessions ?? []).map((s) => s.id);
-    const docs = sessionIds.length > 0
-      ? await this.sessionDocumentRepository
-          .createQueryBuilder('doc')
-          .where('doc.sessionId IN (:...ids)', { ids: sessionIds })
-          .getMany()
-      : [];
-
-    const context = await this.extractTextFromDocuments(docs, question);
-
-    if (!context) {
-      return {
-        text: 'Aucun contenu disponible pour cette formation. Je ne peux pas répondre à votre question sans documents de référence.',
-        isFallback: true,
-      };
-    }
-
-    const systemPrompt = `Tu es un assistant pédagogique pour la formation "${formation.titre}" sur la plateforme StirForma.
-Tu réponds aux questions des participants en te basant UNIQUEMENT sur les documents de formation fournis.
-Si la réponse ne se trouve pas dans les documents, dis-le clairement : "Cette information ne figure pas dans les documents de la formation."
-Ne fais JAMAIS appel à des connaissances générales hors du contenu fourni.
-Réponds en français, de façon claire et pédagogique.`;
-
-    const userPrompt = `--- DOCUMENTS DE FORMATION ---
-${context}
---- FIN DES DOCUMENTS ---
-
-Question du participant : ${question}`;
-
-    const fallback = `Je n'ai pas pu accéder au service IA pour le moment. Voici les informations disponibles sur la formation "${formation.titre}" :\n\n` +
-      (formation.objectifs ? `Objectifs : ${formation.objectifs}\n` : '') +
-      (formation.programme ? `Programme : ${formation.programme}` : '');
-
-    return this.callClaude(systemPrompt, userPrompt, fallback, GROQ_RAG_MODEL);
-  }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // PRIVATE : Vérification inscription participant
-  // ───────────────────────────────────────────────────────────────────────────
 
   private async assertParticipantEnrolled(formationId: string, userId: string): Promise<void> {
     const inscription = await this.inscriptionRepository
@@ -645,100 +816,9 @@ Question du participant : ${question}`;
       .getOne();
 
     if (!inscription) {
-      throw new ForbiddenException('Vous devez être inscrit à cette formation pour utiliser l\'assistant IA');
+      throw new ForbiddenException(
+        "Vous devez être inscrit à cette formation pour utiliser l'assistant IA",
+      );
     }
   }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // PRIVATE : Extraction texte des documents PDF
-  // ───────────────────────────────────────────────────────────────────────────
-
-  private async extractTextFromDocuments(
-    docs: SessionDocument[],
-    keyword?: string,
-  ): Promise<string> {
-    if (docs.length === 0) return '';
-
-    // pdf-parse@1.1.1 exporte directement une fonction
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const pdfParse: (buf: Buffer) => Promise<{ text: string }> = require('pdf-parse');
-    const parts: string[] = [];
-
-    for (const doc of docs) {
-      // On traite uniquement les PDF
-      if (!doc.mimetype?.includes('pdf') && !doc.filename?.endsWith('.pdf')) continue;
-
-      const filePath = join(__dirname, '..', '..', '..', 'uploads', 'session-docs', doc.filename);
-      if (!fs.existsSync(filePath)) continue;
-
-      try {
-        const buffer = fs.readFileSync(filePath);
-        const parsed = await pdfParse(buffer);
-        const text = parsed.text?.trim();
-        if (text) {
-          parts.push(`[Document: ${doc.originalName}]\n${text}`);
-        }
-      } catch (err: any) {
-        this.logger.warn(`Impossible de lire le PDF ${doc.filename}: ${err.message}`);
-      }
-    }
-
-    if (parts.length === 0) return '';
-
-    let combined = parts.join('\n\n---\n\n');
-
-    // Chunking : si keyword fourni, prioriser les passages pertinents
-    if (keyword && combined.length > RAG_MAX_CHARS) {
-      combined = this.extractRelevantChunks(combined, keyword);
-    }
-
-    // Sans keyword (résumé) : on prend les premiers paragraphes non-vides
-    // qui contiennent des phrases complètes (évite les listes de mots bruts)
-    if (!keyword && combined.length > RAG_MAX_CHARS) {
-      const paragraphs = combined.split(/\n{2,}/);
-      const meaningful = paragraphs.filter((p) => p.length > 80 && /[.!?]/.test(p));
-      if (meaningful.length > 0) {
-        let result = '';
-        for (const p of meaningful) {
-          if ((result + p).length > RAG_MAX_CHARS) break;
-          result += p + '\n\n';
-        }
-        combined = result.trim() || combined.slice(0, RAG_MAX_CHARS);
-      } else {
-        combined = combined.slice(0, RAG_MAX_CHARS);
-      }
-      combined += '\n\n[... contenu tronqué]';
-    }
-
-    // Tronquer si toujours trop long
-    if (combined.length > RAG_MAX_CHARS + 50) {
-      combined = combined.slice(0, RAG_MAX_CHARS) + '\n\n[... contenu tronqué]';
-    }
-
-    return combined;
-  }
-
-  /**
-   * Chunking basique par mot-clé : extrait les paragraphes contenant
-   * les termes de la question, avec 200 chars de contexte autour.
-   */
-  private extractRelevantChunks(text: string, keyword: string): string {
-    const keywords = keyword.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
-    const paragraphs = text.split(/\n{2,}/);
-    const scored = paragraphs.map((p) => {
-      const lower = p.toLowerCase();
-      const score = keywords.reduce((acc, kw) => acc + (lower.includes(kw) ? 1 : 0), 0);
-      return { p, score };
-    });
-
-    const relevant = scored
-      .filter((s) => s.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 30)
-      .map((s) => s.p);
-
-    const result = relevant.join('\n\n');
-    return result.length > 0 ? result : text.slice(0, RAG_MAX_CHARS);
-  }
-
 }

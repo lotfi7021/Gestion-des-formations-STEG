@@ -2,8 +2,6 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UseInterc
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { FormationService } from './formation.service';
 import { CreateFormationDto } from './dto/create-formation.dto';
 import { UpdateFormationDto } from './dto/update-formation.dto';
@@ -11,44 +9,25 @@ import { AskFormationDto } from '../ai/dto/ask-formation.dto';
 import { AiService } from '../ai/ai.service';
 import { ManualJwtGuard } from '../auth/guards/manual-jwt.guard';
 import { OptionalJwtGuard } from '../auth/guards/optional-jwt.guard';
-import { CabinetOrAdminGuard } from '../auth/guards/cabinet-or-admin.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
-import { User } from '../../entities/user.entity';
-
-function isUUID(v: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
-}
 
 @Controller('formations')
 export class FormationController {
   constructor(
     private readonly formationService: FormationService,
     private readonly aiService: AiService,
-    @InjectRepository(User) private readonly userRepo: Repository<User>,
   ) {}
 
-  private async resolveCabinetId(req: any, queryCabinetId?: string): Promise<string | undefined> {
-    if (queryCabinetId && typeof queryCabinetId === 'string' && isUUID(queryCabinetId)) return queryCabinetId;
-    if (req.user?.role === 'cabinet' && req.user?.email) {
-      const u = await this.userRepo.findOne({ where: { email: req.user.email } });
-      const uid = u?.id;
-      return uid && isUUID(uid) ? uid : undefined;
-    }
-    return undefined;
-  }
-
   @Post()
-  @UseGuards(ManualJwtGuard, CabinetOrAdminGuard)
-  async create(@Body() dto: CreateFormationDto, @Req() req: any) {
-    const cabinetId = await this.resolveCabinetId(req);
-    return this.formationService.create({ ...dto, cabinetId });
+  @UseGuards(ManualJwtGuard, AdminGuard)
+  async create(@Body() dto: CreateFormationDto) {
+    return this.formationService.create(dto);
   }
 
   @Get()
   @UseGuards(OptionalJwtGuard)
-  async findAll(@Req() req: any, @Query('cabinetId') queryCabinetId?: string, @Query('all') all?: string) {
-    const cabinetId = await this.resolveCabinetId(req, queryCabinetId);
-    return this.formationService.findAll(cabinetId, all === 'true');
+  async findAll(@Query('all') all?: string) {
+    return this.formationService.findAll(all === 'true');
   }
 
   @Get(':id')
@@ -57,21 +36,15 @@ export class FormationController {
   }
 
   @Patch(':id')
-  @UseGuards(ManualJwtGuard, CabinetOrAdminGuard)
+  @UseGuards(ManualJwtGuard, AdminGuard)
   update(@Param('id') id: string, @Body() dto: UpdateFormationDto) {
     return this.formationService.update(id, dto);
   }
 
   @Delete(':id')
-  @UseGuards(ManualJwtGuard, CabinetOrAdminGuard)
+  @UseGuards(ManualJwtGuard, AdminGuard)
   remove(@Param('id') id: string) {
     return this.formationService.remove(id);
-  }
-
-  @Post(':id/clone')
-  @UseGuards(ManualJwtGuard, AdminGuard)
-  clone(@Param('id') id: string) {
-    return this.formationService.cloneForPlatform(id);
   }
 
   /**
@@ -103,7 +76,7 @@ export class FormationController {
   }
 
   @Post(':id/upload')
-  @UseGuards(ManualJwtGuard, CabinetOrAdminGuard)
+  @UseGuards(ManualJwtGuard, AdminGuard)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -132,7 +105,7 @@ export class FormationController {
   }
 
   @Post(':id/upload-image')
-  @UseGuards(ManualJwtGuard, CabinetOrAdminGuard)
+  @UseGuards(ManualJwtGuard, AdminGuard)
   @UseInterceptors(
     FileInterceptor('image', {
       storage: diskStorage({
@@ -158,7 +131,7 @@ export class FormationController {
   }
 
   @Delete(':id/supports/:index')
-  @UseGuards(ManualJwtGuard, CabinetOrAdminGuard)
+  @UseGuards(ManualJwtGuard, AdminGuard)
   async removeSupport(@Param('id') id: string, @Param('index') index: string) {
     return this.formationService.removeSupport(id, parseInt(index));
   }

@@ -5,13 +5,10 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
-  ManyToOne,
-  JoinColumn,
   BeforeInsert,
 } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { FormationType } from '../common/enums';
-import { User } from './user.entity';
 import { Session } from './session.entity';
 import { Certificate } from './certificate.entity';
 
@@ -82,22 +79,6 @@ export class Formation {
 
   @OneToMany(() => Certificate, (certificate) => certificate.formation)
   certificats: Certificate[];
-
-  @Column({ type: 'varchar', length: 36, nullable: true })
-  cabinetId: string;
-
-  @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'cabinetId' })
-  cabinet: User;
-
-  @Column({ type: 'varchar', length: 36, nullable: true })
-  clonedFromId: string;
-
-  @Column({ type: 'varchar', length: 36, nullable: true })
-  clonedFromCabinetId: string;
-
-  @Column({ type: 'varchar', nullable: true })
-  clonedFromCabinetName: string;
 
   @CreateDateColumn()
   createdAt: Date;

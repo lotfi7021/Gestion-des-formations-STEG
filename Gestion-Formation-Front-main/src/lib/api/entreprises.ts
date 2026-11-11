@@ -1,4 +1,5 @@
 import { api } from "./client";
+import type { EmployeRef } from "./types";
 
 export type Entreprise = {
   id: string;
@@ -8,7 +9,7 @@ export type Entreprise = {
   adresse: string;
   siret: string;
   secteurActivite: string;
-  employes: any[];
+  employes: EmployeRef[];
 };
 
 export async function getEntreprises(): Promise<Entreprise[]> {

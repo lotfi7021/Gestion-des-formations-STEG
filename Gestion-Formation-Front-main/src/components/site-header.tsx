@@ -26,85 +26,65 @@ export function SiteHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/75 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-6 px-6">
-        <Link to="/" className="flex items-center gap-2">
-          <img src="/images/logo.png" alt="steg_form" className="h-10 w-auto" />
-          <span className="font-display text-2xl tracking-tight text-foreground">steg_form</span>
+        <Link to="/" className="group flex items-center gap-2">
+          <img
+            src="/images/logo.png"
+            alt="steg_form"
+            className="h-10 w-auto transition-transform duration-500 group-hover:scale-105"
+          />
+          <span className="font-display text-2xl tracking-tight text-foreground">
+            steg<span className="text-gradient-brand">_form</span>
+          </span>
         </Link>
-        <nav className="hidden items-center gap-8 md:flex">
+        <nav className="hidden items-center gap-1 md:flex">
           {!isAuthenticated &&
             publicNav.map((n) => (
               <Link
                 key={n.to}
                 to={n.to}
                 activeOptions={{ exact: n.to === "/" }}
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                activeProps={{ className: "text-foreground font-medium" }}
+                className="rounded-full px-4 py-2 text-sm text-muted-foreground transition-all duration-200 hover:bg-secondary hover:text-foreground"
+                activeProps={{
+                  className: "bg-secondary text-foreground font-medium",
+                }}
               >
                 {n.label}
               </Link>
             ))}
-          {!isLoading && isAuthenticated && user?.role !== "admin" && user?.role !== "cabinet" && (
+          {!isLoading && isAuthenticated && user?.role !== "admin" && (
             <>
-              <Link
-                to="/mes-formations"
-                className="text-sm font-medium text-primary transition-colors hover:text-primary/80"
-              >
-                Mes formations
-              </Link>
+              <NavLink to="/mes-formations" label="Mes formations" />
               {user?.role === "formateur" && (
                 <>
-                  <Link
-                    to="/formateur/dashboard"
-                    className="text-sm font-medium text-primary transition-colors hover:text-primary/80"
-                  >
-                    Mes sessions
-                  </Link>
-                  <Link
-                    to="/formateur/calendrier"
-                    className="text-sm font-medium text-primary transition-colors hover:text-primary/80"
-                  >
-                    Calendrier
-                  </Link>
+                  <NavLink to="/formateur/dashboard" label="Mes sessions" />
+                  <NavLink to="/formateur/calendrier" label="Calendrier" />
                 </>
               )}
               {(user?.role === "participant" || user?.role === "employe") && (
-                <Link
-                  to="/participant/calendrier"
-                  className="text-sm font-medium text-primary transition-colors hover:text-primary/80"
-                >
-                  Calendrier
-                </Link>
+                <NavLink to="/participant/calendrier" label="Calendrier" />
               )}
             </>
-          )}
-          {!isLoading && isAuthenticated && user?.role === "cabinet" && (
-            <Link
-              to="/cabinet"
-              className="text-sm font-medium text-primary transition-colors hover:text-primary/80"
-            >
-              Tableau de bord
-            </Link>
           )}
         </nav>
         <div className="flex items-center gap-2">
           <DarkModeToggle />
           {!isLoading && isAuthenticated ? (
             <>
-              {(user?.role === "admin" || user?.role === "cabinet") && (
+              {user?.role === "admin" && (
                 <Link
-                  to={user?.role === "admin" ? "/admin" : "/cabinet"}
-                  className="hidden rounded-md border border-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary sm:inline-flex"
+                  to="/admin"
+                  className="hidden rounded-full border border-border bg-card px-4 py-1.5 text-sm text-foreground transition-all duration-200 hover:border-primary/40 hover:text-primary sm:inline-flex"
                 >
                   Tableau de bord
                 </Link>
               )}
 
-              {user?.role !== "admin" && user?.role !== "cabinet" && (
+              {user?.role !== "admin" && (
                 <Link
                   to="/catalogue"
-                  className="rounded-md border border-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary"
+                  className="rounded-full border border-border bg-card px-4 py-1.5 text-sm text-foreground transition-all duration-200 hover:border-primary/40 hover:text-primary"
                 >
                   Catalogue
                 </Link>
@@ -112,7 +92,7 @@ export function SiteHeader() {
               <NotificationBell />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="overflow-hidden rounded-full border-2 border-border text-foreground transition-colors hover:border-primary h-9 w-9">
+                  <button className="h-9 w-9 overflow-hidden rounded-full border-2 border-border transition-all duration-200 hover:border-primary hover:shadow-[var(--shadow-glow)]">
                     {user?.avatarUrl ? (
                       <img
                         src={`${API_URL}${user.avatarUrl}`}
@@ -120,7 +100,7 @@ export function SiteHeader() {
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="grid h-full w-full place-items-center bg-primary/10 text-sm font-medium text-primary">
+                      <div className="grid h-full w-full place-items-center bg-gradient-to-br from-primary to-sky text-sm font-medium text-white">
                         {user?.username?.[0]?.toUpperCase() || "?"}
                       </div>
                     )}
@@ -144,7 +124,7 @@ export function SiteHeader() {
           ) : (
             <Link
               to="/connexion"
-              className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              className="inline-flex items-center rounded-full bg-gradient-to-r from-primary to-sky px-5 py-2 text-sm font-medium text-white shadow-[var(--shadow-soft)] transition-all duration-300 hover:shadow-[var(--shadow-glow)] hover:brightness-110"
             >
               Connexion
             </Link>
@@ -155,50 +135,70 @@ export function SiteHeader() {
   );
 }
 
+function NavLink({ to, label }: { to: string; label: string }) {
+  return (
+    <Link
+      to={to}
+      className="relative rounded-full px-4 py-2 text-sm font-medium text-primary transition-all duration-200 hover:bg-primary/10"
+      activeProps={{ className: "bg-primary/10" }}
+    >
+      {label}
+    </Link>
+  );
+}
+
 export function SiteFooter() {
   return (
-    <footer className="mt-24 border-t border-border bg-secondary/40">
+    <footer className="relative mt-24 border-t border-border bg-secondary/40">
+      <div
+        className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent"
+        aria-hidden
+      />
       <div className="mx-auto grid max-w-7xl gap-10 px-6 py-14 md:grid-cols-4">
         <div>
           <div className="flex items-center gap-2">
             <img src="/images/logo.png" alt="steg_form" className="h-10 w-auto" />
-            <span className="font-display text-2xl">steg_form</span>
+            <span className="font-display text-2xl">
+              steg<span className="text-gradient-brand">_form</span>
+            </span>
           </div>
           <p className="mt-3 max-w-xs text-sm text-muted-foreground">
-            La plateforme de gestion des formations de la STEG — Société Tunisienne de l'Électricité et du Gaz.
+            La plateforme de gestion des formations de la STEG — Société Tunisienne de l'Électricité
+            et du Gaz.
           </p>
         </div>
-        <div>
-          <h4 className="text-sm font-semibold text-foreground">Plateforme</h4>
-          <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-            <li>
-              <Link to="/">Accueil</Link>
-            </li>
-            <li>
-              <Link to="/a-propos">À propos</Link>
-            </li>
-            <li>
-              <Link to="/contact">Contact</Link>
-            </li>
-          </ul>
-        </div>
-        <div>
-          <h4 className="text-sm font-semibold text-foreground">Société</h4>
-          <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-            <li>
-              <Link to="/a-propos">À propos</Link>
-            </li>
-            <li>
-              <Link to="/contact">Contact</Link>
-            </li>
-          </ul>
-        </div>
+        <FooterCol
+          title="Plateforme"
+          links={[
+            { to: "/", label: "Accueil" },
+            { to: "/a-propos", label: "À propos" },
+            { to: "/contact", label: "Contact" },
+          ]}
+        />
+        <FooterCol
+          title="Société"
+          links={[
+            { to: "/a-propos", label: "À propos" },
+            { to: "/contact", label: "Contact" },
+          ]}
+        />
         <div>
           <h4 className="text-sm font-semibold text-foreground">Contact</h4>
           <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
             <li>Direction de la Formation, Bizerte</li>
-            <li>contact-formation@steg.tn</li>
-            <li>+216 72 000 000</li>
+            <li>
+              <a
+                href="mailto:contact-formation@steg.tn"
+                className="transition-colors hover:text-primary"
+              >
+                contact-formation@steg.tn
+              </a>
+            </li>
+            <li>
+              <a href="tel:+21672000000" className="transition-colors hover:text-primary">
+                +216 72 000 000
+              </a>
+            </li>
           </ul>
         </div>
       </div>
@@ -206,5 +206,25 @@ export function SiteFooter() {
         © 2026 STEG — Direction de la Formation. Tous droits réservés.
       </div>
     </footer>
+  );
+}
+
+function FooterCol({ title, links }: { title: string; links: { to: string; label: string }[] }) {
+  return (
+    <div>
+      <h4 className="text-sm font-semibold text-foreground">{title}</h4>
+      <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+        {links.map((l) => (
+          <li key={`${l.to}-${l.label}`}>
+            <Link
+              to={l.to}
+              className="inline-block transition-all hover:translate-x-0.5 hover:text-primary"
+            >
+              {l.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

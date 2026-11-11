@@ -43,11 +43,10 @@ export class EvaluationService {
     return this.evaluationRepository.save(evaluation);
   }
 
-  async findAll(formationId?: string, formateurId?: string, cabinetId?: string, sessionId?: string, participantId?: string): Promise<Evaluation[]> {
+  async findAll(formationId?: string, formateurId?: string, sessionId?: string, participantId?: string): Promise<Evaluation[]> {
     const where: any = {};
     if (formationId) where.session = { ...where.session, formation: { id: formationId } };
     if (formateurId) where.formateur = { id: formateurId };
-    if (cabinetId) where.session = { ...where.session, cabinetId };
     if (sessionId) where.session = { ...where.session, id: sessionId };
     if (participantId) where.participant = { id: participantId };
     return this.evaluationRepository.find({

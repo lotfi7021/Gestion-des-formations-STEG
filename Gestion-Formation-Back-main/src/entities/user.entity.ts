@@ -7,7 +7,6 @@ import {
   ManyToOne,
   ManyToMany,
   OneToMany,
-  JoinColumn,
   BeforeInsert,
 } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
@@ -113,22 +112,6 @@ export class User {
   // --- Relations ---
   @ManyToOne(() => Entreprise, (entreprise) => entreprise.users, { nullable: true })
   entreprise: Entreprise;
-
-  @Column({ type: 'varchar', length: 36, nullable: true })
-  cabinetId: string;
-
-  @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'cabinetId' })
-  cabinet: User;
-
-  @Column({ type: 'varchar', length: 36, nullable: true })
-  clonedFromId: string;
-
-  @Column({ type: 'varchar', length: 36, nullable: true })
-  clonedFromCabinetId: string;
-
-  @Column({ type: 'varchar', nullable: true })
-  clonedFromCabinetName: string;
 
   @ManyToMany(() => Session, (session) => session.formateurs)
   sessionsAsFormateur: Session[];

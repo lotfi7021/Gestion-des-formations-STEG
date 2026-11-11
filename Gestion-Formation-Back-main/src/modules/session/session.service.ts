@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, IsNull, FindOptionsWhere } from 'typeorm';
+import { Repository, In, FindOptionsWhere } from 'typeorm';
 import PDFDocument from 'pdfkit';
 import { Session } from '../../entities/session.entity';
 import { Formation } from '../../entities/formation.entity';
@@ -30,21 +30,15 @@ export class SessionService {
     private readonly inscriptionService: InscriptionService,
   ) {}
 
-  async create(dto: CreateSessionDto & { cabinetId?: string }): Promise<Session> {
+  async create(dto: CreateSessionDto): Promise<Session> {
     const formation = await this.formationRepository.findOneBy({ id: dto.formationId });
     if (!formation) throw new NotFoundException(`Formation #${dto.formationId} not found`);
-
-    let cabinet: User | undefined;
-    if (dto.cabinetId) {
-      cabinet = await this.userRepository.findOneBy({ id: dto.cabinetId });
-    }
 
     const session = this.sessionRepository.create({
       ...dto,
       dateDebut: new Date(dto.dateDebut),
       dateFin: new Date(dto.dateFin),
       formation,
-      cabinet: cabinet || undefined,
       participants: [],
       employes: [],
       formateurs: [],
@@ -109,25 +103,21 @@ export class SessionService {
     return saved;
   }
 
-  async findAll(cabinetId?: string, all?: boolean): Promise<Session[]> {
+  async findAll(all?: boolean): Promise<Session[]> {
     const where: FindOptionsWhere<Session> = {};
-    if (all) {
-      // return all sessions (admin KPI use case)
-    } else if (cabinetId) {
-      where.cabinetId = cabinetId as any;
-    } else {
-      where.cabinetId = IsNull();
+    if (!all) {
+      where.isCancelled = false;
     }
     return this.sessionRepository.find({
       where,
-      relations: { formation: true, participants: true, employes: true, formateurs: true, cabinet: true },
+      relations: { formation: true, participants: true, employes: true, formateurs: true },
     });
   }
 
   async findOne(id: string): Promise<Session> {
     const session = await this.sessionRepository.findOne({
       where: { id },
-      relations: { formation: true, participants: true, employes: true, formateurs: true, presences: true, evaluations: true, cabinet: true },
+      relations: { formation: true, participants: true, employes: true, formateurs: true, presences: true, evaluations: true },
     });
     if (!session) throw new NotFoundException(`Session #${id} not found`);
     return session;
@@ -287,28 +277,6 @@ export class SessionService {
     return new Promise((resolve) => {
       doc.on('end', () => resolve({ buffer: Buffer.concat(buffers), titre }));
     });
-  }
-
-  async cloneForPlatform(id: string): Promise<Session> {
-    const original = await this.findOne(id);
-    const platformFormation = await this.formationRepository.findOne({
-      where: { clonedFromId: original.formation.id },
-    });
-    const clone = this.sessionRepository.create({
-      dateDebut: original.dateDebut,
-      dateFin: original.dateFin,
-      heureDebut: original.heureDebut,
-      heureFin: original.heureFin,
-      lieu: original.lieu,
-      salle: original.salle,
-      nombreParticipants: 0,
-      capaciteMax: original.capaciteMax,
-      formation: platformFormation || original.formation,
-      clonedFromId: id,
-      clonedFromCabinetId: original.cabinetId,
-      clonedFromCabinetName: original.cabinet?.nom ?? null,
-    });
-    return this.sessionRepository.save(clone);
   }
 
   async remove(id: string): Promise<void> {

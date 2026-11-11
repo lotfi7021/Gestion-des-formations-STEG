@@ -91,28 +91,21 @@ function AdminFormations() {
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [pendingSupports, setPendingSupports] = useState<File[]>([]);
   const [detailFormation, setDetailFormation] = useState<Formation | null>(null);
-  const [originFilter, setOriginFilter] = useState<"all" | "platform" | "cabinet">("all");
   const [search, setSearch] = useState("");
 
   const { data: formations, isLoading } = useQuery({
     queryKey: ["formations"],
-    queryFn: getFormations,
+    queryFn: () => getFormations(),
   });
-  const filtered = (formations || [])
-    .filter((f) => {
-      if (originFilter === "cabinet") return !!f.clonedFromCabinetId;
-      if (originFilter === "platform") return !f.clonedFromCabinetId;
-      return true;
-    })
-    .filter((f) => {
-      if (!search) return true;
-      const q = search.toLowerCase();
-      return (
-        f.titre.toLowerCase().includes(q) ||
-        (f.description || "").toLowerCase().includes(q) ||
-        (f.categorie || "").toLowerCase().includes(q)
-      );
-    });
+  const filtered = (formations || []).filter((f) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      f.titre.toLowerCase().includes(q) ||
+      (f.description || "").toLowerCase().includes(q) ||
+      (f.categorie || "").toLowerCase().includes(q)
+    );
+  });
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -499,19 +492,9 @@ function AdminFormations() {
               className="h-8 rounded-md border border-border bg-background px-3 text-xs outline-none focus:border-primary"
             />
             <span className="text-xs font-medium text-muted-foreground">Origine :</span>
-            {(["all", "platform", "cabinet"] as const).map((o) => (
-              <button
-                key={o}
-                onClick={() => setOriginFilter(o)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  originFilter === o
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                }`}
-              >
-                {o === "all" ? "Tous" : o === "platform" ? "Plateforme" : "Cabinet"}
-              </button>
-            ))}
+            <span className="rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">
+              Plateforme
+            </span>
           </div>
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <table className="w-full text-sm">
@@ -552,14 +535,7 @@ function AdminFormations() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 font-medium">
-                      {f.titre}
-                      {f.clonedFromCabinetId && (
-                        <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">
-                          {f.clonedFromCabinetName || "Cabinet"}
-                        </span>
-                      )}
-                    </td>
+                    <td className="px-4 py-3 font-medium">{f.titre}</td>
                     <td className="px-4 py-3 text-muted-foreground">{f.categorie || "—"}</td>
                     <td className="px-4 py-3">
                       <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary">
@@ -615,11 +591,6 @@ function AdminFormations() {
               </div>
               <div>
                 <span>{detailFormation?.titre}</span>
-                {detailFormation?.clonedFromCabinetId && (
-                  <span className="ml-2 inline-block rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
-                    Issu de {detailFormation?.clonedFromCabinetName || "cabinet"}
-                  </span>
-                )}
               </div>
             </DialogTitle>
           </DialogHeader>

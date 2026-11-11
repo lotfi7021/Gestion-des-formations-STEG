@@ -1,4 +1,5 @@
 import { api } from "./client";
+import type { UserRef } from "./types";
 
 export type Notification = {
   id: string;
@@ -9,8 +10,8 @@ export type Notification = {
   dateEnvoi: string;
   dateLecture: string;
   lienAction: string;
-  metadata: Record<string, any>;
-  user: any;
+  metadata: Record<string, unknown>;
+  user: UserRef;
 };
 
 export async function getNotifications(): Promise<Notification[]> {

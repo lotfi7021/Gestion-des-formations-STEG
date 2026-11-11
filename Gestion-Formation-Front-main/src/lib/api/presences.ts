@@ -1,4 +1,5 @@
 import { api } from "./client";
+import type { EmployeRef, SessionRef } from "./types";
 
 export type Presence = {
   id: string;
@@ -10,8 +11,8 @@ export type Presence = {
   commentaire: string;
   isJustified: boolean;
   justificatifUrl: string;
-  employe: any;
-  session: any;
+  employe: EmployeRef;
+  session: SessionRef;
 };
 
 export async function getPresences(): Promise<Presence[]> {

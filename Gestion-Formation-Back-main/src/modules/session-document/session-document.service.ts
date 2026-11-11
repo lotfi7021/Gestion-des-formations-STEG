@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { join } from 'path';
+import * as fs from 'fs';
 import { SessionDocument } from '../../entities/session-document.entity';
 import { Session } from '../../entities/session.entity';
 import { User } from '../../entities/user.entity';
@@ -69,6 +71,36 @@ export class SessionDocumentService {
       relations: { uploadedBy: true },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  /**
+   * Supprime un document de session.
+   * Autorisé uniquement aux formateurs de la session (même règle que l'upload).
+   * Supprime aussi le fichier physique du disque.
+   */
+  async remove(docId: string, userId: string): Promise<void> {
+    const doc = await this.docRepository.findOne({
+      where: { id: docId },
+      relations: { session: { formateurs: true } },
+    });
+    if (!doc) throw new NotFoundException('Document introuvable');
+
+    const isFormateur = doc.session.formateurs.some((f) => f.id === userId);
+ if (!isFormateur) {
+      throw new ForbiddenException(
+        'Seuls les formateurs de cette session peuvent supprimer des documents',
+      );
+    }
+
+    await this.docRepository.remove(doc);
+
+    // Best effort : ne bloque pas la réponse si le fichier est déjà absent
+    const filePath = join(__dirname, '..', '..', '..', 'uploads', 'session-docs', doc.filename);
+    try {
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    } catch (err: any) {
+      // Log silencieux : la ligne DB est déjà supprimée
+    }
   }
 
   async findOne(docId: string, userId: string): Promise<SessionDocument> {

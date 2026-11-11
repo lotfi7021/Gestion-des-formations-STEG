@@ -215,8 +215,8 @@ function AdminParametres() {
                   await saveSignature(imageData, type);
                   toast.success("Signature enregistrée");
                   queryClient.invalidateQueries({ queryKey: ["my-signature"] });
-                } catch (err: any) {
-                  toast.error(err.message || "Erreur");
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Erreur");
                 }
               }}
               savedSignature={existingSignature?.imageData || null}

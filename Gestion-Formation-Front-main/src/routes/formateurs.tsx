@@ -31,7 +31,7 @@ export const Route = createFileRoute("/formateurs")({
 function TrainersPage() {
   const { data: formateurs, isLoading } = useQuery({
     queryKey: ["formateurs"],
-    queryFn: getFormateurs,
+    queryFn: () => getFormateurs(),
   });
 
   return (

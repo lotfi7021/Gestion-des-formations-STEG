@@ -1,4 +1,5 @@
 import { api } from "./client";
+import type { EmployeRef, FormationRef, UserRef } from "./types";
 
 export type Session = {
   id: string;
@@ -17,20 +18,16 @@ export type Session = {
   isCompleted: boolean;
   isCancelled: boolean;
   notes: string;
-  formation: any;
-  participants: any[];
-  employes: any[];
-  formateurs: any[];
-  clonedFromId?: string;
-  clonedFromCabinetId?: string;
-  clonedFromCabinetName?: string;
+  formation: FormationRef;
+  participants: UserRef[];
+  employes: EmployeRef[];
+  formateurs: UserRef[];
   createdAt: string;
   updatedAt: string;
 };
 
-export async function getSessions(cabinetId?: string, all?: boolean): Promise<Session[]> {
+export async function getSessions(all?: boolean): Promise<Session[]> {
   const params = new URLSearchParams();
-  if (cabinetId) params.set("cabinetId", cabinetId);
   if (all) params.set("all", "true");
   const qs = params.toString();
   return api.get<Session[]>(`/sessions${qs ? `?${qs}` : ""}`);
@@ -40,11 +37,31 @@ export async function getSession(id: string): Promise<Session> {
   return api.get<Session>(`/sessions/${id}`);
 }
 
-export async function createSession(dto: any): Promise<Session> {
+export type CreateSessionDto = {
+  formationId: string;
+  dateDebut: string;
+  dateFin: string;
+  heureDebut?: string;
+  heureFin?: string;
+  lieu?: string;
+  salle?: string;
+  capaciteMax?: number;
+  notes?: string;
+  participantIds?: string[];
+  employeIds?: string[];
+  formateurIds?: string[];
+};
+
+export type UpdateSessionDto = Partial<CreateSessionDto> & {
+  isCompleted?: boolean;
+  isCancelled?: boolean;
+};
+
+export async function createSession(dto: CreateSessionDto): Promise<Session> {
   return api.post<Session>("/sessions", dto);
 }
 
-export async function updateSession(id: string, dto: any): Promise<Session> {
+export async function updateSession(id: string, dto: UpdateSessionDto): Promise<Session> {
   return api.patch<Session>(`/sessions/${id}`, dto);
 }
 

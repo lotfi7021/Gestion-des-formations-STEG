@@ -19,7 +19,9 @@ async function handleResponse<T>(res: Response): Promise<T> {
     try {
       const parsed = JSON.parse(body);
       message = parsed.message || message;
-    } catch {}
+    } catch {
+      // Corps non-JSON : on garde le texte brut comme message d'erreur.
+    }
     throw new ApiError(message, res.status);
   }
   const text = await res.text();

@@ -73,7 +73,9 @@ export function NotificationBell() {
     try {
       await markNotificationAsRead(id);
       setItems((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
-    } catch {}
+    } catch {
+      // Échec silencieux assumé : la cloche se resynchronise à la prochaine ouverture.
+    }
   }
 
   const unread = items.filter((n) => !n.isRead);

@@ -247,10 +247,7 @@ function FormationPage() {
         {(user?.role === "participant" || user?.role === "employe") &&
           sessions.some((s) => s.participants?.some((p: { id: string }) => p.id === user?.id)) && (
             <section className="mx-auto max-w-7xl px-6 pb-16">
-              <FormationAiAssistant
-                formationId={id}
-                formationTitre={formation.titre}
-              />
+              <FormationAiAssistant formationId={id} formationTitre={formation.titre} />
             </section>
           )}
 
