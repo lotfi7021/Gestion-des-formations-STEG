@@ -78,7 +78,7 @@ function AdminDashboard() {
 
   return (
     <AdminShell
-      title="Bonjour Sarah."
+      title="Bonjour."
       subtitle="Bienvenue sur votre tableau de bord. Retrouvez en un coup d'œil l'activité de votre plateforme."
       actions={
         <>

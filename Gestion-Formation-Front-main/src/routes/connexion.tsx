@@ -118,9 +118,7 @@ function ConnexionPage() {
           <div className="mb-8 text-center">
             <img src="/images/logo.png" alt="steg_form" className="mx-auto h-12 w-auto md:hidden" />
             <h1 className="mt-4 font-display text-4xl">Connexion</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Accédez à votre espace administrateur
-            </p>
+            <p className="mt-2 text-sm text-muted-foreground">Accédez à votre espace</p>
           </div>
 
           <div className="rounded-xl border border-border bg-card p-8">
