@@ -19,6 +19,9 @@ export class SeedService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
+    if (process.env.NODE_ENV === 'production') {
+      return;
+    }
     await this.seedEntreprises();
     await this.seedUsers();
     await this.seedFormations();
@@ -50,7 +53,7 @@ export class SeedService implements OnApplicationBootstrap {
       {
         username: 'admin',
         email: 'admin@steg.tn',
-        password: '123456',
+        password: process.env.SEED_ADMIN_PASSWORD ?? '123456',
         role: UserRole.ADMIN,
         nom: 'Admin',
         prenom: 'Super',
@@ -59,7 +62,7 @@ export class SeedService implements OnApplicationBootstrap {
       {
         username: 'formateur',
         email: 'formateur@steg.tn',
-        password: '123456',
+        password: process.env.SEED_FORMATEUR_PASSWORD ?? '123456',
         role: UserRole.FORMATEUR,
         nom: 'Ben Salah',
         prenom: 'Ahmed',
@@ -69,7 +72,7 @@ export class SeedService implements OnApplicationBootstrap {
       {
         username: 'participant',
         email: 'participant@steg.tn',
-        password: '123456',
+        password: process.env.SEED_PARTICIPANT_PASSWORD ?? '123456',
         role: UserRole.PARTICIPANT,
         nom: 'Trabelsi',
         prenom: 'Mohamed',
