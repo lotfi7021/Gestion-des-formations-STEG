@@ -24,7 +24,6 @@ import { API_URL } from "@/lib/api/client";
 import { getFormations } from "@/lib/api/formations";
 import { getSessions } from "@/lib/api/sessions";
 import { getFormateurs } from "@/lib/api/formateurs";
-import { getEmployes } from "@/lib/api/employes";
 import { getParticipants } from "@/lib/api/users";
 import {
   CommandDialog,
@@ -41,7 +40,6 @@ const nav = [
   { to: "/admin", label: "Tableau de bord", icon: LayoutDashboard, exact: true },
   { to: "/admin/formations", label: "Formations", icon: BookOpen },
   { to: "/admin/sessions", label: "Sessions", icon: CalendarDays },
-  { to: "/admin/employes", label: "Employés", icon: IdCard },
   { to: "/admin/formateurs", label: "Formateurs", icon: GraduationCap },
   { to: "/admin/participants", label: "Participants", icon: Users },
   { to: "/admin/approbations", label: "Approbations", icon: UserCheck },
@@ -70,7 +68,7 @@ function GlobalSearch() {
 
   const { data: formations } = useQuery({
     queryKey: ["search-formations"],
-    queryFn: () => getFormations(true),
+    queryFn: () => getFormations({ all: true }),
   });
   const { data: sessions } = useQuery({
     queryKey: ["search-sessions"],
@@ -79,10 +77,6 @@ function GlobalSearch() {
   const { data: formateurs } = useQuery({
     queryKey: ["search-formateurs"],
     queryFn: () => getFormateurs(),
-  });
-  const { data: employes } = useQuery({
-    queryKey: ["search-employes"],
-    queryFn: getEmployes,
   });
   const { data: participants } = useQuery({
     queryKey: ["search-participants"],
@@ -158,24 +152,6 @@ function GlobalSearch() {
                   <GraduationCap className="h-4 w-4" />
                   <span>{f.prenom + " " + f.nom}</span>
                   <span className="text-xs text-muted-foreground ml-2">{f.email}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          )}
-          {employes && employes.length > 0 && (
-            <CommandGroup heading="Employés">
-              {employes.map((e) => (
-                <CommandItem
-                  key={e.id}
-                  value={`employe-${e.prenom}-${e.nom}-${e.email}`}
-                  onSelect={() => {
-                    setOpen(false);
-                    navigate({ to: "/admin/employes" });
-                  }}
-                >
-                  <IdCard className="h-4 w-4" />
-                  <span>{e.prenom + " " + e.nom}</span>
-                  <span className="text-xs text-muted-foreground ml-2">{e.email}</span>
                 </CommandItem>
               ))}
             </CommandGroup>

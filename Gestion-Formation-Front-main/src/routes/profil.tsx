@@ -288,7 +288,7 @@ function ProfilPage() {
               </form>
             </section>
 
-            {(user?.role === "participant" || user?.role === "employe") && <MesFormations />}
+            {(user?.role === "participant") && <MesFormations />}
           </div>
         </div>
       </PageShell>

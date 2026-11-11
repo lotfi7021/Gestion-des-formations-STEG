@@ -31,22 +31,6 @@ export class UserController {
     return this.userService.createParticipant(dto);
   }
 
-  /**
-   * Employés STEG = Users avec role='employe'
-   * (ancienne table `employes` fusionnée dans `users`).
-   */
-  @UseGuards(ManualJwtGuard, AdminGuard)
-  @Get('employes')
-  findEmployes() {
-    return this.userService.findAllEmployes();
-  }
-
-  @UseGuards(ManualJwtGuard, AdminGuard)
-  @Post('employes')
-  createEmploye(@Body() dto: CreateParticipantDto) {
-    return this.userService.createEmploye(dto);
-  }
-
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.userService.findOne(id);

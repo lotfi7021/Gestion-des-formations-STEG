@@ -62,7 +62,7 @@ export function SiteHeader() {
                   <NavLink to="/formateur/calendrier" label="Calendrier" />
                 </>
               )}
-              {(user?.role === "participant" || user?.role === "employe") && (
+              {(user?.role === "participant") && (
                 <NavLink to="/participant/calendrier" label="Calendrier" />
               )}
             </>

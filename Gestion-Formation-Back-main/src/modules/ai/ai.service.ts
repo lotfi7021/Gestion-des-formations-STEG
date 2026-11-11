@@ -18,12 +18,35 @@ import { RagService, RagChunk } from './rag/rag.service';
 // Constantes
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Fournisseur LLM ─────────────────────────────────────────────────────────
+// Les résumés sont générés par l'IA LOCALE : Ollama sur la machine (modèle
+// Gemma 3 4B, le même que celui utilisé dans le notebook). Aucune configuration
+// n'est nécessaire, `ollama serve` + `ollama pull gemma3:4b` suffisent.
+// Pour repasser sur l'API cloud Groq : AI_PROVIDER=groq dans .env.
+const AI_PROVIDER_ENV = 'AI_PROVIDER';
+const AI_BASE_URL_ENV = 'AI_BASE_URL';
+const AI_MODEL_ENV = 'AI_MODEL';
+const AI_TIMEOUT_ENV = 'AI_TIMEOUT_MS';
+
+/** URL locale d'Ollama (API compatible OpenAI) — attendue sous la forme http://hote:port/v1 */
+const AI_LOCAL_URL_DEFAUT = 'http://localhost:11434/v1';
+/** Modèle local : Gemma 3 4B, déjà téléchargé sur le poste (`ollama list`). */
+const AI_LOCAL_MODEL_DEFAUT = 'gemma3:4b';
+/** Timeout par défaut en local : la génération sur CPU dépasse souvent 30 s. */
+const AI_LOCAL_TIMEOUT_MS = 180_000;
+/** Ollama ignore la clé API — jeton neutre pour garder le même chemin de code que Groq. */
+const AI_LOCAL_API_KEY = 'ollama';
+
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'qwen/qwen3.8-27b';
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 2000;
-/** Timeout par requête HTTP vers Groq (ms). */
+/**
+ * Timeout par requête HTTP vers le LLM (ms).
+ * Surchargeable par AI_TIMEOUT_MS : indispensable en local sur CPU, où un résumé
+ * peut dépasser 30 s (ex. AI_TIMEOUT_MS=180000).
+ */
 const REQUEST_TIMEOUT_MS = 30_000;
 
 /** Durée du cache des résumés (ms) — invalidé si les documents changent. */
@@ -37,7 +60,9 @@ const RAG_SYSTEM_RULES = `Règles impératives :
 - Réponds UNIQUEMENT en français, dans un ton professionnel et pédagogique.
 - Base-toi EXCLUSIVEMENT sur le contexte fourni ci-dessous. N'utilise JAMAIS tes connaissances générales.
 - Si l'information n'est pas dans le contexte, déclare-le explicitement plutôt que d'inventer.
-- Cite tes sources sous la forme (Document, page X) pour chaque affirmation issue d'un document.`;
+- Cite tes sources sous la forme (nom-du-fichier.pdf, page X) en recopiant le nom de fichier donné
+  dans les extraits après « Source: ». N'utilise aucun autre nom de fichier et n'écris jamais
+  le mot « Document » à la place du nom.`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Service
@@ -48,10 +73,11 @@ export class AiService {
   private readonly logger = new Logger(AiService.name);
 
   /**
-   * Cache des résumés générés : clé = formationId ou sessionId,
+   * Cache des résumés de formation : clé = `summary:formation:{id}`,
    * valeur = { réponse, empreinte des documents, date }.
    * Invalidation : TTL 24h OU changement des documents de session
    * (upload/suppression → nouvelle empreinte).
+   * Les résumés de session ne sont pas cachés.
    */
   private readonly summaryCache = new Map<
     string,
@@ -142,7 +168,7 @@ Utilise un style formel, sans émojis. Maximum 400 mots.`;
 
     const fallbackText = this.buildSessionSummaryFallback(session, tauxPresence, pointsForts, pointsAmeliorer);
 
-    const result = await this.callGroq(systemPrompt, userPrompt, fallbackText);
+    const result = await this.callModel(systemPrompt, userPrompt, fallbackText);
     return { ...result, latencyMs: Date.now() - started };
   }
 
@@ -230,7 +256,7 @@ Le corps doit :
       user, formation, session, tauxAssiduite, certificate.noteObtenue,
     );
 
-    const result = await this.callGroq(systemPrompt, userPrompt, fallbackText, GROQ_MODEL, {
+    const result = await this.callModel(systemPrompt, userPrompt, fallbackText, {
       temperature: 0.7,
       maxTokens: 1024,
       jsonMode: true,
@@ -307,26 +333,48 @@ Le corps doit :
 
     const systemPrompt = `Tu es un assistant pédagogique expert pour la plateforme StirForma.
 Tu génères des résumés structurés et clairs de formations professionnelles en français.
-${RAG_SYSTEM_RULES}`;
+${RAG_SYSTEM_RULES}
 
-    const userPrompt = `Génère un résumé structuré de la formation "${formation.titre}" à partir des extraits ci-dessous.
+Priorité des sources :
+- La source principale est le CONTENU des documents fourni dans la balise <documents>. Tu le décris
+tel qu'il est réellement écrit, même s'il ne correspond pas au titre de la formation.
+- Le titre et la fiche administrative ne décrivent PAS le contenu : ils servent seulement à
+introduire la formation. N'en déduis jamais le programme ni les objectifs pédagogiques.
+- Si les documents portent sur un autre sujet que le titre, résume leur contenu réel et signale
+brièvement la divergence.`;
 
-Le résumé doit contenir :
-1. **Objectifs pédagogiques** — ce que le participant apprend
-2. **Points clés du contenu** — les thèmes et concepts principaux abordés
+    // Noms des fichiers réellement fournis : le modèle doit citer uniquement ceux-là
+    // (sinon il invente des noms de sources plausibles).
+    const sourcesDisponibles = [...new Set(rag.chunks.map((c) => c.document))].join(', ');
+
+    const userPrompt = `<documents>
+${rag.context}
+</documents>
+
+Rédige un résumé structuré du CONTENU RÉEL des documents ci-dessus, dans le cadre de la
+formation "${formation.titre}".
+
+Consignes :
+- Décris ce que contiennent VRAIMENT les documents, même si le sujet diffère du titre.
+- Si le contenu ne correspond pas au titre, résume-le quand même puis signale la divergence
+  en une phrase, sans refuser de résumer.
+- Utilise la structure suivante si le document s'y prête (formation, support de cours).
+  Sinon, adapte les titres au contenu réel (par ex. pour un CV : Profil / Formation /
+  Compétences / Expérience) :
+1. **Objectifs pédagogiques** — ce que le participant apprend, tel que décrit dans les documents
+2. **Points clés du contenu** — les thèmes, chapitres et concepts réellement traités
 3. **Compétences visées** — ce que le participant sera capable de faire à l'issue
-4. **Synthèse** — 2-3 phrases résumant l'essentiel
+4. **Synthèse** — 2-3 phrases résumant l'essentiel des documents
 
-Informations de la formation :
-- Titre : ${formation.titre}
+Sources disponibles (les seules qui existent — n'en invente aucune autre) : ${sourcesDisponibles}
+Termine chaque phrase issue des documents par sa source ENTRE PARENTHÈSES, au format
+(nom-du-fichier.pdf, page N), sans écrire le mot « Source: » à cet endroit.
+
+Fiche administrative (contexte général UNIQUEMENT — ne pas en déduire le contenu et ne pas la citer) :
 - Catégorie : ${formation.categorie || 'Non renseignée'}
 - Durée : ${formation.dureeEnJours ?? '?'} jour(s) / ${formation.dureeEnHeures ?? '?'} heure(s)
 - Objectifs déclarés : ${formation.objectifs || 'Non renseignés'}
-- Programme : ${formation.programme || 'Non renseigné'}
-
---- EXTRAITS DES DOCUMENTS DE SESSION ---
-${rag.context}
---- FIN DES EXTRAITS ---`;
+- Programme déclaré : ${formation.programme || 'Non renseigné'}`;
 
     const fallback =
       `Résumé de la formation "${formation.titre}" :\n\n` +
@@ -334,7 +382,7 @@ ${rag.context}
       (formation.programme ? `**Programme :** ${formation.programme}\n\n` : '') +
       `Durée : ${formation.dureeEnJours ?? '?'} jour(s).`;
 
-    const result = await this.callGroq(systemPrompt, userPrompt, fallback, GROQ_MODEL);
+    const result = await this.callModel(systemPrompt, userPrompt, fallback);
 
     const response: AiTextResponse = {
       ...result,
@@ -421,7 +469,7 @@ Question du participant : ${question}`;
     // pour donner au moins un extrait pertinent.
     const fallback = this.buildRagKeywordFallback(rag.chunks, question, formation.titre);
 
-    const result = await this.callGroq(systemPrompt, userPrompt, fallback, GROQ_MODEL, {
+    const result = await this.callModel(systemPrompt, userPrompt, fallback, {
       jsonMode: true,
       temperature: 0.3, // Q&A factuelle → peu créatif
     });
@@ -461,24 +509,67 @@ Question du participant : ${question}`;
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // PRIVATE : Appel Groq — retry/backoff, timeout, logs de monitoring
+  // PRIVATE : Choix du fournisseur + appel du LLM (retry/backoff, timeout, logs)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Résout l'endpoint et le modèle à utiliser :
+   *  - AI_PROVIDER=local (défaut) ou AI_BASE_URL défini → IA locale Ollama
+   *    (API compatible OpenAI), modèle AI_MODEL ou gemma3:4b ;
+   *  - AI_PROVIDER=groq → API cloud Groq (modèle qwen/qwen3.8-27b).
+   * Ollama ignore la clé API : on envoie un jeton neutre pour conserver le même
+   * chemin de code que Groq.
+   */
+  private resolveFournisseur(): {
+    url: string;
+    model: string;
+    apiKey?: string;
+    label: string;
+    timeoutMs: number;
+  } {
+    const provider = (this.configService.get<string>(AI_PROVIDER_ENV) ?? 'local').toLowerCase();
+    const baseUrl =
+      this.configService.get<string>(AI_BASE_URL_ENV) ??
+      (provider === 'groq' ? undefined : AI_LOCAL_URL_DEFAUT);
+
+    if (baseUrl) {
+      return {
+        url: `${baseUrl.replace(/\/+$/, '')}/chat/completions`,
+        model: this.configService.get<string>(AI_MODEL_ENV) ?? AI_LOCAL_MODEL_DEFAUT,
+        apiKey: AI_LOCAL_API_KEY,
+        label: 'IA locale (Ollama)',
+        timeoutMs: Number(this.configService.get<string>(AI_TIMEOUT_ENV)) || AI_LOCAL_TIMEOUT_MS,
+      };
+    }
+
+    return {
+      url: GROQ_API_URL,
+      model: GROQ_MODEL,
+      apiKey: this.configService.get<string>('GROQ_API_KEY'),
+      label: 'Groq',
+      timeoutMs: Number(this.configService.get<string>(AI_TIMEOUT_ENV)) || REQUEST_TIMEOUT_MS,
+    };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
   // ───────────────────────────────────────────────────────────────────────────
 
-  private async callGroq(
+  private async callModel(
     systemPrompt: string,
     userPrompt: string,
     fallbackText: string,
-    model: string = GROQ_MODEL,
     opts?: { temperature?: number; maxTokens?: number; jsonMode?: boolean },
   ): Promise<AiTextResponse> {
-    const apiKey = this.configService.get<string>('GROQ_API_KEY');
-    if (!apiKey) {
-      this.logger.warn('GROQ_API_KEY non configurée — utilisation du fallback');
+    const fournisseur = this.resolveFournisseur();
+    if (!fournisseur.apiKey) {
+      this.logger.warn(
+        `${fournisseur.label} : clé API non configurée (GROQ_API_KEY) — utilisation du fallback`,
+      );
       return { text: fallbackText, isFallback: true };
     }
 
     const body: Record<string, any> = {
-      model,
+      model: fournisseur.model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
@@ -491,14 +582,14 @@ Question du participant : ${question}`;
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       const attemptStart = Date.now();
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      const timer = setTimeout(() => controller.abort(), fournisseur.timeoutMs);
 
       try {
-        const response = await fetch(GROQ_API_URL, {
+        const response = await fetch(fournisseur.url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
+            Authorization: `Bearer ${fournisseur.apiKey}`,
           },
           body: JSON.stringify(body),
           signal: controller.signal,
@@ -511,19 +602,19 @@ Question du participant : ${question}`;
           if (text) {
             // Log de monitoring : durée, modèle, usage tokens
             this.logger.log(
-              `Groq OK ${model} ${elapsed}ms | usage: ${JSON.stringify(data?.usage ?? {})}`,
+              `${fournisseur.label} OK ${fournisseur.model} ${elapsed}ms | usage: ${JSON.stringify(data?.usage ?? {})}`,
             );
             clearTimeout(timer);
             return { text, isFallback: false };
           }
-          this.logger.warn(`Réponse Groq vide (${elapsed}ms) — fallback`);
+          this.logger.warn(`${fournisseur.label} : réponse vide (${elapsed}ms) — fallback`);
           clearTimeout(timer);
           return { text: fallbackText, isFallback: true };
         }
 
         const errBody = await response.text().catch(() => '');
         this.logger.warn(
-          `Groq erreur ${response.status} (tentative ${attempt + 1}/${MAX_RETRIES}): ${errBody.slice(0, 300)}`,
+          `${fournisseur.label} erreur ${response.status} (tentative ${attempt + 1}/${MAX_RETRIES}): ${errBody.slice(0, 300)}`,
         );
 
         // Retry sur 429 (rate limit) et 5xx (erreur serveur)
@@ -537,14 +628,16 @@ Question du participant : ${question}`;
         }
 
         clearTimeout(timer);
-        this.logger.error(`Erreur Groq non récupérable (${response.status}) — fallback`);
+        this.logger.error(
+          `Erreur ${fournisseur.label} non récupérable (${response.status}) — fallback`,
+        );
         return { text: fallbackText, isFallback: true };
       } catch (err: any) {
         const elapsed = Date.now() - attemptStart;
         // AbortError = timeout
         const isTimeout = err?.name === 'AbortError';
         this.logger.error(
-          `${isTimeout ? 'Timeout' : 'Erreur réseau'} Groq (tentative ${attempt + 1}/${MAX_RETRIES}, ${elapsed}ms): ${err?.message}`,
+          `${isTimeout ? 'Timeout' : 'Erreur réseau'} ${fournisseur.label} (tentative ${attempt + 1}/${MAX_RETRIES}, ${elapsed}ms): ${err?.message}`,
         );
         if (attempt < MAX_RETRIES - 1) {
           clearTimeout(timer);
@@ -806,7 +899,12 @@ Question du participant : ${question}`;
     return lines.join('\n').trim();
   }
 
+  /**
+   * Vérifie que l'utilisateur a accès à la formation : soit via une inscription,
+   * soit affecté directement à une session par l'admin (session_participants).
+   */
   private async assertParticipantEnrolled(formationId: string, userId: string): Promise<void> {
+    // 1) Inscription classique (flux paiement)
     const inscription = await this.inscriptionRepository
       .createQueryBuilder('i')
       .innerJoin('i.session', 's')
@@ -814,11 +912,20 @@ Question du participant : ${question}`;
       .where('f.id = :formationId', { formationId })
       .andWhere('i.userId = :userId', { userId })
       .getOne();
+    if (inscription) return;
 
-    if (!inscription) {
-      throw new ForbiddenException(
-        "Vous devez être inscrit à cette formation pour utiliser l'assistant IA",
-      );
-    }
+    // 2) Affectation directe par l'admin (participant ajouté à une session)
+    const affected = await this.sessionRepository
+      .createQueryBuilder('s')
+      .innerJoin('s.participants', 'p')
+      .innerJoin('s.formation', 'f')
+      .where('f.id = :formationId', { formationId })
+      .andWhere('p.id = :userId', { userId })
+      .getOne();
+    if (affected) return;
+
+    throw new ForbiddenException(
+      "Vous devez être inscrit à cette formation pour utiliser l'assistant IA",
+    );
   }
 }

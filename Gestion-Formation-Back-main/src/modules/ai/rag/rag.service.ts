@@ -35,6 +35,16 @@ export interface RagContext {
 const CHUNK_SIZE = 1200;
 /** Chevauchement entre chunks consécutifs pour ne pas couper les idées. */
 const CHUNK_OVERLAP = 150;
+/**
+ * Budget par défaut du contexte injecté dans le prompt (caractères).
+ * Les modèles locaux (Ollama, gemma3:4b) ont une fenêtre de 4096 tokens par
+ * défaut, et Ollama TRONQUE le début du prompt (donc les consignes) dès que
+ * prompt + réponse dépasse cette fenêtre. Mesures faites : ~1,8 à 2,3 caractères
+ * par token selon le texte → 4800 caractères laissent la place aux consignes et
+ * à 1024 tokens de réponse. À augmenter (20 000 par ex.) si vous utilisez un
+ * modèle à fenêtre plus large, type `gemma3-steg` (num_ctx 16384).
+ */
+const CONTEXTE_BUDGET_DEFAUT = 4800;
 
 const FRENCH_STOPWORDS = new Set([
   'alors', 'apres', 'après', 'aussi', 'autre', 'autres', 'avant', 'avec', 'avoir',
@@ -82,6 +92,7 @@ export class RagService {
     topK?: number,
   ): Promise<RagContext> {
     const k = topK ?? this.configService.get<number>('AI_RAG_TOP_K') ?? 8;
+    const budget = this.configService.get<number>('AI_MAX_CONTEXT_CHARS') ?? CONTEXTE_BUDGET_DEFAUT;
 
     if (docs.length === 0) return { context: '', chunks: [], usedEmbeddings: false };
 
@@ -96,7 +107,7 @@ export class RagService {
     // 2. Sélection des chunks
     if (!question) {
       // Mode résumé : paragraphes significatifs jusqu'au budget
-      const selected = this.selectForSummary(allChunks);
+      const selected = this.selectForSummary(allChunks, budget);
       return {
         context: this.formatChunks(selected),
         chunks: selected,
@@ -112,7 +123,8 @@ export class RagService {
       const top = scored
         .filter((c) => (c.score ?? 0) > 0.3) // seuil de pertinence minimal
         .slice(0, k);
-      const picked = top.length > 0 ? top : scored.slice(0, Math.min(3, scored.length));
+      const best = top.length > 0 ? top : scored.slice(0, Math.min(3, scored.length));
+      const picked = this.limiterAuBudget(best, budget);
       this.logger.log(
         `RAG vectoriel : ${allChunks.length} chunks → ${picked.length} retenus (top score ${picked[0]?.score?.toFixed(2)})`,
       );
@@ -121,7 +133,7 @@ export class RagService {
 
     // 3. Fallback : scoring par mots-clés
     this.logger.warn('Embeddings indisponibles — RAG par mots-clés');
-    const selected = this.selectByKeywords(allChunks, question, k);
+    const selected = this.limiterAuBudget(this.selectByKeywords(allChunks, question, k), budget);
     return { context: this.formatChunks(selected), chunks: selected, usedEmbeddings: false };
   }
 
@@ -276,7 +288,7 @@ export class RagService {
 
     if (keywords.length === 0) return chunks.slice(0, k);
 
-    return chunks
+    const correspondances = chunks
       .map((c) => {
         const lower = c.text.toLowerCase();
         const score = keywords.reduce((acc, kw) => acc + (lower.includes(kw) ? 1 : 0), 0);
@@ -285,18 +297,74 @@ export class RagService {
       .filter((c) => (c.score ?? 0) > 0)
       .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
       .slice(0, k);
+
+    // Aucun mot-clé de la question trouvé dans les documents : on transmet les
+    // premiers chunks pour que le modèle puisse répondre, ou déclarer que
+    // l'information est absente, au lieu d'un « aucun contenu exploitable »
+    // trompeur alors que les documents existent.
+    if (correspondances.length === 0) {
+      this.logger.log(
+        `RAG mots-clés : aucun mot-clé de la question présent — ${Math.min(k, chunks.length)} premiers chunks fournis au modèle`,
+      );
+      return chunks.slice(0, k);
+    }
+    return correspondances;
   }
 
-  /** Mode résumé : remplit le budget avec des paragraphes significatifs. */
-  private selectForSummary(chunks: RagChunk[], budget = 6000): RagChunk[] {
-    const selected: RagChunk[] = [];
+  /**
+   * Tronque la sélection au budget de caractères, en conservant les chunks les
+   * mieux classés : le contexte envoyé au modèle reste dans sa fenêtre et les
+   * sources annoncées correspondent exactement à ce qui a été analysé.
+   */
+  private limiterAuBudget(chunks: RagChunk[], budget: number): RagChunk[] {
+    const retenus: RagChunk[] = [];
     let total = 0;
-    for (const c of chunks) {
-      if (total + c.text.length > budget) break;
-      selected.push(c);
-      total += c.text.length;
+    for (const chunk of chunks) {
+      if (total + chunk.text.length > budget) break;
+      retenus.push(chunk);
+      total += chunk.text.length;
     }
-    return selected.length > 0 ? selected : chunks.slice(0, 5);
+    if (retenus.length < chunks.length) {
+      this.logger.log(
+        `Contexte RAG borné : ${retenus.length}/${chunks.length} chunks retenus (budget ${budget} car. — AI_MAX_CONTEXT_CHARS)`,
+      );
+    }
+    return retenus.length > 0 ? retenus : chunks.slice(0, 1);
+  }
+
+  /**
+   * Mode résumé : répartit le budget sur TOUT le document (échantillonnage
+   * régulier) au lieu de ne garder que son début — sinon un rapport de 40 pages
+   * serait résumé à partir de ses 5 premières pages.
+   */
+  private selectForSummary(chunks: RagChunk[], budget = 6000): RagChunk[] {
+    if (chunks.length === 0) return [];
+
+    // On cherche l'échantillon le plus riche qui tienne dans le budget :
+    // pas = 1 (tout le document) puis de plus en plus espace, en conservant
+    // toujours le premier et le dernier chunk.
+    let meilleur: RagChunk[] = [];
+    let meilleurTotal = 0;
+    for (let pas = 1; pas <= chunks.length; pas++) {
+      const echantillon = chunks.filter(
+        (_, i) => i % pas === 0 || i === chunks.length - 1,
+      );
+      const total = echantillon.reduce((somme, c) => somme + c.text.length, 0);
+      if (total <= budget && total > meilleurTotal) {
+        meilleur = echantillon;
+        meilleurTotal = total;
+      }
+    }
+    if (meilleur.length > 0) {
+      if (meilleur.length < chunks.length) {
+        this.logger.log(
+          `Résumé : ${meilleur.length}/${chunks.length} chunks répartis sur tout le document (${meilleurTotal} car.)`,
+        );
+      }
+      return meilleur;
+    }
+    // Budget insuffisant même pour 2 chunks : on garde ce qui rentre.
+    return this.limiterAuBudget(chunks, budget);
   }
 
   /** Format final injecté dans le prompt, avec sources traçables. */

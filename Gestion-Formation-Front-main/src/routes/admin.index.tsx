@@ -12,7 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AdminShell } from "@/components/admin-shell";
 import { getFormations } from "@/lib/api/formations";
 import { getSessions } from "@/lib/api/sessions";
-import { getEmployes } from "@/lib/api/employes";
+import { getParticipants } from "@/lib/api/users";
 import { getFormateurs } from "@/lib/api/formateurs";
 
 export const Route = createFileRoute("/admin/")({
@@ -25,7 +25,7 @@ function AdminDashboard() {
     queryFn: () => getFormations(),
   });
   const { data: sessions } = useQuery({ queryKey: ["sessions"], queryFn: () => getSessions() });
-  const { data: employes } = useQuery({ queryKey: ["employes"], queryFn: getEmployes });
+  const { data: participants } = useQuery({ queryKey: ["participants"], queryFn: getParticipants });
   const { data: formateurs } = useQuery({
     queryKey: ["formateurs"],
     queryFn: () => getFormateurs(),
@@ -48,7 +48,7 @@ function AdminDashboard() {
     },
     {
       label: "Participants actifs",
-      value: String(employes?.length || 0),
+      value: String(participants?.length || 0),
       delta: "—",
       icon: Users,
       tone: "ochre" as const,

@@ -16,11 +16,24 @@ import { PageShell } from "@/components/page-shell";
 import { getMySessions, type Session } from "@/lib/api/sessions";
 import { getFormation } from "@/lib/api/formations";
 import { API_URL } from "@/lib/api/client";
-import { DayPicker } from "react-day-picker";
+import { DayPicker, DayButton, type DayButtonProps } from "react-day-picker";
 import { fr } from "date-fns/locale";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+
+/**
+ * Palette de couleurs pour distinguer les sessions sur le calendrier :
+ * chaque session reçoit une couleur différente (cycle sur la palette).
+ */
+const SESSION_COLORS = [
+  { color: "#dc2626", bg: "rgba(220, 38, 38, 0.14)" }, // rouge
+  { color: "#2563eb", bg: "rgba(37, 99, 235, 0.14)" }, // bleu
+  { color: "#16a34a", bg: "rgba(22, 163, 74, 0.14)" }, // vert
+  { color: "#ea580c", bg: "rgba(234, 88, 12, 0.14)" }, // orange
+  { color: "#7c3aed", bg: "rgba(124, 58, 237, 0.14)" }, // violet
+  { color: "#0d9488", bg: "rgba(13, 148, 136, 0.14)" }, // sarcelle
+];
 
 export const Route = createFileRoute("/formateur/calendrier")({
   component: () => (
@@ -44,15 +57,6 @@ function FormateurCalendrier() {
     queryFn: () => getFormation(selectedSession!.formation!.id),
     enabled: !!selectedSession?.formation?.id,
   });
-
-  const sessionDays = useMemo(() => {
-    if (!sessions) return [];
-    const days = sessions.map((s: Session) => {
-      const d = new Date(s.dateDebut);
-      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    });
-    return days;
-  }, [sessions]);
 
   const sessionsForSelectedDate = useMemo(() => {
     if (!sessions || !selectedDate) return [];
@@ -84,18 +88,59 @@ function FormateurCalendrier() {
 
   const nextSession = upcomingSessions[0];
 
-  const modifiers = {
-    hasSession: sessionDays,
-  };
+  /**
+   * Map « clé jour (yyyy-mm-dd) » → couleur de la session qui couvre ce jour.
+   * Utilisée par le DayButton custom pour colorer chaque jour.
+   */
+  const dayColorMap = useMemo(() => {
+    const map = new Map<string, { color: string; bg: string }>();
+    if (!sessions) return map;
+    sessions.forEach((s: Session, idx: number) => {
+      const c = SESSION_COLORS[idx % SESSION_COLORS.length];
+      const start = new Date(s.dateDebut);
+      const end = new Date(s.dateFin);
+      const cur = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      const last = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+      // Garde-fou : 60 jours max par session pour éviter une boucle infinie
+      for (let i = 0; i < 60 && cur <= last; i++) {
+        map.set(
+          `${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`,
+          { color: c.color, bg: c.bg },
+        );
+        cur.setDate(cur.getDate() + 1);
+      }
+    });
+    return map;
+  }, [sessions]);
 
-  const modifiersStyles = {
-    hasSession: {
-      fontWeight: "700",
-      textDecoration: "underline",
-      textUnderlineOffset: "3px",
-      color: "var(--color-primary)",
-    },
-  };
+  /**
+   * Bouton de jour personnalisé : applique la couleur de la session
+   * directement en style inline (fiable, contrairement à modifiersStyles
+   * qui est écrasé par le CSS Tailwind de day_button).
+   */
+  const ColoredDayButton = useMemo(() => {
+    const colorMap = dayColorMap;
+    return function ColoredDayButton({ day, modifiers, ...props }: DayButtonProps) {
+      const key = `${day.date.getFullYear()}-${day.date.getMonth()}-${day.date.getDate()}`;
+      const c = colorMap.get(key);
+      if (!c || modifiers.outside || modifiers.disabled) {
+        return <DayButton day={day} modifiers={modifiers} {...props} />;
+      }
+      return (
+        <DayButton
+          day={day}
+          modifiers={modifiers}
+          {...props}
+          style={{
+            ...props.style,
+            fontWeight: "700",
+            color: c.color,
+            backgroundColor: c.bg,
+          }}
+        />
+      );
+    };
+  }, [dayColorMap]);
 
   return (
     <PageShell>
@@ -129,8 +174,6 @@ function FormateurCalendrier() {
                 month={currentMonth}
                 onMonthChange={setCurrentMonth}
                 locale={fr}
-                modifiers={modifiers}
-                modifiersStyles={modifiersStyles}
                 showOutsideDays={false}
                 className="rounded-xl border border-border bg-card p-4"
                 classNames={{
@@ -156,12 +199,41 @@ function FormateurCalendrier() {
                   selected: "bg-primary text-primary-foreground font-semibold",
                 }}
                 components={{
+                  DayButton: ColoredDayButton,
                   Chevron: ({ orientation }) => {
                     if (orientation === "left") return <ChevronLeft className="h-4 w-4" />;
                     return <ChevronRight className="h-4 w-4" />;
                   },
                 }}
               />
+
+              {/* Légende : une couleur par session */}
+              {sessions && sessions.length > 0 && (
+                <div className="mt-2 space-y-1 px-1">
+                  {sessions.slice(0, SESSION_COLORS.length).map((s: Session, idx: number) => (
+                    <p
+                      key={s.id}
+                      className="flex items-center gap-2 text-xs text-muted-foreground"
+                    >
+                      <span
+                        className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: SESSION_COLORS[idx % SESSION_COLORS.length].color }}
+                        aria-hidden
+                      />
+                      <span className="truncate">
+                        {s.formation?.titre || "Session"} ·{" "}
+                        {format(new Date(s.dateDebut), "d MMM yyyy", { locale: fr })}
+                      </span>
+                    </p>
+                  ))}
+                  {sessions.length > SESSION_COLORS.length && (
+                    <p className="text-xs text-muted-foreground/70">
+                      + {sessions.length - SESSION_COLORS.length} autre(s) session(s) — couleurs
+                      répétées
+                    </p>
+                  )}
+                </div>
+              )}
 
               {nextSession && (
                 <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4">

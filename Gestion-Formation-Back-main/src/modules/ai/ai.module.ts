@@ -12,7 +12,6 @@ import { User } from '../../entities/user.entity';
 
 import { AuthModule } from '../auth/auth.module';
 import { AiService } from './ai.service';
-import { AiController } from './ai.controller';
 import { RagService } from './rag/rag.service';
 import { EmbeddingsService } from './rag/embeddings.service';
 
@@ -30,7 +29,7 @@ import { EmbeddingsService } from './rag/embeddings.service';
     ]),
     AuthModule,
   ],
-  controllers: [AiController],
+  controllers: [],
   providers: [AiService, RagService, EmbeddingsService],
   exports: [AiService],
 })

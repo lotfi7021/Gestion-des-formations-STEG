@@ -33,7 +33,6 @@ import { Route as AdminKpiRouteImport } from './routes/admin.kpi'
 import { Route as AdminFormationsRouteImport } from './routes/admin.formations'
 import { Route as AdminFormateursRouteImport } from './routes/admin.formateurs'
 import { Route as AdminEvaluationsRouteImport } from './routes/admin.evaluations'
-import { Route as AdminEmployesRouteImport } from './routes/admin.employes'
 import { Route as AdminDocumentsRouteImport } from './routes/admin.documents'
 import { Route as AdminApprobationsRouteImport } from './routes/admin.approbations'
 
@@ -157,11 +156,6 @@ const AdminEvaluationsRoute = AdminEvaluationsRouteImport.update({
   path: '/evaluations',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminEmployesRoute = AdminEmployesRouteImport.update({
-  id: '/employes',
-  path: '/employes',
-  getParentRoute: () => AdminRoute,
-} as any)
 const AdminDocumentsRoute = AdminDocumentsRouteImport.update({
   id: '/documents',
   path: '/documents',
@@ -186,7 +180,6 @@ export interface FileRoutesByFullPath {
   '/profil': typeof ProfilRoute
   '/admin/approbations': typeof AdminApprobationsRoute
   '/admin/documents': typeof AdminDocumentsRoute
-  '/admin/employes': typeof AdminEmployesRoute
   '/admin/evaluations': typeof AdminEvaluationsRoute
   '/admin/formateurs': typeof AdminFormateursRoute
   '/admin/formations': typeof AdminFormationsRoute
@@ -214,7 +207,6 @@ export interface FileRoutesByTo {
   '/profil': typeof ProfilRoute
   '/admin/approbations': typeof AdminApprobationsRoute
   '/admin/documents': typeof AdminDocumentsRoute
-  '/admin/employes': typeof AdminEmployesRoute
   '/admin/evaluations': typeof AdminEvaluationsRoute
   '/admin/formateurs': typeof AdminFormateursRoute
   '/admin/formations': typeof AdminFormationsRoute
@@ -244,7 +236,6 @@ export interface FileRoutesById {
   '/profil': typeof ProfilRoute
   '/admin/approbations': typeof AdminApprobationsRoute
   '/admin/documents': typeof AdminDocumentsRoute
-  '/admin/employes': typeof AdminEmployesRoute
   '/admin/evaluations': typeof AdminEvaluationsRoute
   '/admin/formateurs': typeof AdminFormateursRoute
   '/admin/formations': typeof AdminFormationsRoute
@@ -275,7 +266,6 @@ export interface FileRouteTypes {
     | '/profil'
     | '/admin/approbations'
     | '/admin/documents'
-    | '/admin/employes'
     | '/admin/evaluations'
     | '/admin/formateurs'
     | '/admin/formations'
@@ -303,7 +293,6 @@ export interface FileRouteTypes {
     | '/profil'
     | '/admin/approbations'
     | '/admin/documents'
-    | '/admin/employes'
     | '/admin/evaluations'
     | '/admin/formateurs'
     | '/admin/formations'
@@ -332,7 +321,6 @@ export interface FileRouteTypes {
     | '/profil'
     | '/admin/approbations'
     | '/admin/documents'
-    | '/admin/employes'
     | '/admin/evaluations'
     | '/admin/formateurs'
     | '/admin/formations'
@@ -537,13 +525,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminEvaluationsRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/employes': {
-      id: '/admin/employes'
-      path: '/employes'
-      fullPath: '/admin/employes'
-      preLoaderRoute: typeof AdminEmployesRouteImport
-      parentRoute: typeof AdminRoute
-    }
     '/admin/documents': {
       id: '/admin/documents'
       path: '/documents'
@@ -564,7 +545,6 @@ declare module '@tanstack/react-router' {
 interface AdminRouteChildren {
   AdminApprobationsRoute: typeof AdminApprobationsRoute
   AdminDocumentsRoute: typeof AdminDocumentsRoute
-  AdminEmployesRoute: typeof AdminEmployesRoute
   AdminEvaluationsRoute: typeof AdminEvaluationsRoute
   AdminFormateursRoute: typeof AdminFormateursRoute
   AdminFormationsRoute: typeof AdminFormationsRoute
@@ -579,7 +559,6 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminApprobationsRoute: AdminApprobationsRoute,
   AdminDocumentsRoute: AdminDocumentsRoute,
-  AdminEmployesRoute: AdminEmployesRoute,
   AdminEvaluationsRoute: AdminEvaluationsRoute,
   AdminFormateursRoute: AdminFormateursRoute,
   AdminFormationsRoute: AdminFormationsRoute,

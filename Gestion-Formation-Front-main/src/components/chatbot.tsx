@@ -170,11 +170,10 @@ export function ChatBot() {
 function getRoleMessage(role?: string): string {
   switch (role) {
     case "admin":
-      return "Je peux vous aider avec tout : formations, sessions, inscriptions, paiements, participants, employés, formateurs. Que voulez-vous savoir ?";
+      return "Je peux vous aider avec tout : formations, sessions, inscriptions, paiements, participants, formateurs. Que voulez-vous savoir ?";
     case "formateur":
       return "Je peux vous renseigner sur vos sessions et formations. Posez-moi une question !";
     case "participant":
-    case "employe":
       return "Je peux vous aider pour vos formations et inscriptions. De quoi avez-vous besoin ?";
     default:
       return "Connectez-vous pour profiter de mes services.";

@@ -29,8 +29,8 @@ export class InscriptionService {
 
   async create(userId: string, sessionId: string): Promise<Inscription> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user || (user.role !== 'participant' && user.role !== 'employe' && user.role !== 'formateur')) {
-      throw new BadRequestException('Seuls les participants, employés et formateurs peuvent s\'inscrire');
+    if (!user || (user.role !== 'participant' && user.role !== 'formateur')) {
+      throw new BadRequestException('Seuls les participants et formateurs peuvent s\'inscrire');
     }
 
     const session = await this.sessionRepository.findOne({
@@ -85,6 +85,66 @@ export class InscriptionService {
         message: `${user.prenom} ${user.nom} (${user.email}) s'est inscrit à "${formation.titre}" et doit payer ${formation.tarif || 0} € en espèces.`,
         userId: admin.id,
         lienAction: '/admin/paiements',
+      });
+    }
+
+    return saved;
+  }
+
+  /**
+   * Inscription directe par l'admin : crée l'inscription et, si payé sur place,
+   * confirme immédiatement (utilisateur ajouté à la session + présences initialisées).
+   */
+  async adminEnroll(userId: string, sessionId: string, adminId: string, paid: boolean): Promise<Inscription> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user || (user.role !== 'participant' && user.role !== 'formateur')) {
+      throw new BadRequestException('Seuls les participants et formateurs peuvent être inscrits');
+    }
+
+    const session = await this.sessionRepository.findOne({
+      where: { id: sessionId },
+      relations: { participants: true, formation: true },
+    });
+    if (!session) throw new NotFoundException(`Session #${sessionId} not found`);
+
+    const alreadyEnrolled = session.participants.some((p) => p.id === user.id);
+    if (alreadyEnrolled) throw new ConflictException(`${user.prenom} ${user.nom} est déjà inscrit à cette session`);
+
+    const existingInscription = await this.inscriptionRepository.findOne({
+      where: { userId, sessionId, statutPaiement: StatutPaiement.EN_ATTENTE },
+    });
+    if (existingInscription) {
+      throw new ConflictException('Une inscription en attente de paiement existe déjà pour cette session (validez-la dans Paiements)');
+    }
+
+    const pendingCount = await this.inscriptionRepository.count({
+      where: { sessionId, statutPaiement: StatutPaiement.EN_ATTENTE },
+    });
+    const maxCap = session.capaciteMax ?? session.formation.capaciteMax;
+    if (maxCap && (session.participants.length + pendingCount) >= maxCap) {
+      throw new BadRequestException('La session a atteint sa capacité maximale');
+    }
+
+    const formation = session.formation;
+    const inscription = this.inscriptionRepository.create({
+      user: { id: userId } as any,
+      session: { id: sessionId } as any,
+      montant: formation.tarif || 0,
+      statutPaiement: StatutPaiement.EN_ATTENTE,
+      methodePaiement: 'cash',
+    });
+    const saved = await this.inscriptionRepository.save(inscription);
+
+    if (paid) {
+      // L'admin encaisse directement : on confirme tout de suite
+      await this.confirmPayment(saved.id, adminId);
+    } else {
+      await this.notificationService.create({
+        type: NotificationType.RAPPEL_SESSION,
+        titre: 'Inscription soumise — Paiement en attente',
+        message: `L'administration vous a inscrit à "${formation.titre}". Veuillez effectuer le paiement en espèces (${formation.tarif || 0} €) pour valider votre inscription.`,
+        userId: user.id,
+        lienAction: '/mes-formations',
       });
     }
 

@@ -72,6 +72,14 @@ export async function enrollInSession(sessionId: string): Promise<Session> {
   return api.post<Session>(`/sessions/${sessionId}/enroll`);
 }
 
+/**
+ * Inscription d'un utilisateur à une session par l'admin.
+ * paid=true → inscription créée directement confirmée (paiement encaissé sur place).
+ */
+export async function adminEnrollUser(userId: string, sessionId: string, paid: boolean): Promise<void> {
+  await api.post('/inscriptions/admin', { userId, sessionId, paid: paid ? 'true' : 'false' });
+}
+
 export async function getMySessions(type?: string): Promise<Session[]> {
   const path = type ? `/sessions/mine?type=${type}` : "/sessions/mine";
   return api.get<Session[]>(path);

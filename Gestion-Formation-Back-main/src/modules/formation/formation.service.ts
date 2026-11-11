@@ -26,7 +26,7 @@ export class FormationService {
     const saved = await this.formationRepository.save(formation);
 
     const all = await this.userRepository.find({
-      where: [{ role: UserRole.PARTICIPANT }, { role: UserRole.FORMATEUR }, { role: UserRole.EMPLOYE }],
+      where: [{ role: UserRole.PARTICIPANT }, { role: UserRole.FORMATEUR }],
     });
     await Promise.all(
       all.map((u) =>
@@ -56,15 +56,26 @@ export class FormationService {
     return saved;
   }
 
-  async findAll(all?: boolean): Promise<Formation[]> {
+  async findAll(options: { all?: boolean; page?: number; limit?: number } = {}): Promise<{ data: Formation[]; total: number; page: number; limit: number; totalPages: number }> {
+    const { all, page = 1, limit = 10 } = options;
     const where: FindOptionsWhere<Formation> = {};
     if (!all) {
       where.isActive = true;
     }
-    return this.formationRepository.find({
+    // all=true : liste complète demandée par l'admin (pas de pagination)
+    const [data, total] = await this.formationRepository.findAndCount({
       where,
       relations: { sessions: true },
+      ...(all ? {} : { skip: (page - 1) * limit, take: limit }),
+      order: { createdAt: 'DESC' },
     });
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: string): Promise<Formation> {

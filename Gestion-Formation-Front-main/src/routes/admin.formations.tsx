@@ -10,6 +10,8 @@ import {
   Download,
   Image as ImageIcon,
   Eye,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -23,6 +25,7 @@ import {
   uploadFormationSupport,
   uploadFormationImage,
   type Formation,
+  type PaginatedFormations,
 } from "@/lib/api/formations";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -92,12 +95,14 @@ function AdminFormations() {
   const [pendingSupports, setPendingSupports] = useState<File[]>([]);
   const [detailFormation, setDetailFormation] = useState<Formation | null>(null);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
 
-  const { data: formations, isLoading } = useQuery({
+  const { data: allFormations, isLoading } = useQuery({
     queryKey: ["formations"],
-    queryFn: () => getFormations(),
+    queryFn: () => getFormations({ all: true }),
   });
-  const filtered = (formations || []).filter((f) => {
+  const filtered = (allFormations || []).filter((f) => {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -106,6 +111,9 @@ function AdminFormations() {
       (f.categorie || "").toLowerCase().includes(q)
     );
   });
+  const totalPages = Math.ceil(filtered.length / limit) || 1;
+  const total = filtered.length;
+  const formations = filtered.slice((page - 1) * limit, page * limit);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -157,6 +165,9 @@ function AdminFormations() {
       queryClient.invalidateQueries({ queryKey: ["formations"] });
       setDeleteId(null);
       toast.success("Formation supprimée");
+      if (formations.length === 1 && page > 1) {
+        setPage(page - 1);
+      }
     },
     onError: () => {
       queryClient.invalidateQueries({ queryKey: ["formations"] });
@@ -575,6 +586,35 @@ function AdminFormations() {
                 ))}
               </tbody>
             </table>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-border px-4 py-3 bg-secondary/30">
+                <div className="text-xs text-muted-foreground">
+                  Page {page} sur {totalPages} — {total} formation{total > 1 ? "s" : ""}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="h-8 gap-1"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    Précédent
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="h-8 gap-1"
+                  >
+                    Suivant
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}
