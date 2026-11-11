@@ -214,7 +214,7 @@ function FormationPage() {
                   <div className="shrink-0">
                     {enrolled ? (
                       <div className="flex items-center gap-2">
-                        <Badge className="bg-green-600 text-white rounded-full">Inscrit</Badge>
+                        <Badge className="bg-blue-600 text-white rounded-full">Inscrit</Badge>
                         <Button
                           variant="outline"
                           size="sm"

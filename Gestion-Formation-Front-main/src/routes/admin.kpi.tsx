@@ -97,7 +97,7 @@ function safeNum(v: any, fallback = 0) {
 
 function statusColor(value: number, thresholds: { pass: number; warn: number }) {
   const v = safeNum(value);
-  if (v >= thresholds.pass) return "text-emerald-600 dark:text-emerald-400";
+  if (v >= thresholds.pass) return "text-blue-600 dark:text-blue-400";
   if (v >= thresholds.warn) return "text-amber-600 dark:text-amber-400";
   return "text-red-600 dark:text-red-400";
 }
@@ -107,7 +107,7 @@ function statusBadge(value: number, thresholds: { pass: number; warn: number }) 
   if (v >= thresholds.pass)
     return {
       label: "Atteint",
-      class: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+      class: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
     };
   if (value >= thresholds.warn)
     return {
@@ -135,7 +135,7 @@ function interpretationLabel(value: number, type: "formateur" | "cabinet" | "for
 
 function interpretationColor(value: number) {
   const v = safeNum(value);
-  if (v >= 70) return "text-emerald-600 dark:text-emerald-400";
+  if (v >= 70) return "text-blue-600 dark:text-blue-400";
   if (v >= 40) return "text-amber-600 dark:text-amber-400";
   return "text-red-600 dark:text-red-400";
 }
@@ -235,7 +235,7 @@ function ProgressRing({
   const r = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * r;
   const offset = circumference - (value / 100) * circumference;
-  const color = value >= 70 ? "#10b981" : value >= 40 ? "#f59e0b" : "#ef4444";
+  const color = value >= 70 ? "#2563eb" : value >= 40 ? "#f59e0b" : "#ef4444";
   return (
     <svg width={size} height={size} className="shrink-0">
       <circle

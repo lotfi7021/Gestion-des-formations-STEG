@@ -319,7 +319,7 @@ function AdminParticipants() {
                         <button
                           onClick={() => toggleMutation.mutate({ id: p.id, isActive: !p.isActive })}
                           disabled={toggleMutation.isPending}
-                          className={`rounded p-1.5 ${p.isActive ? "text-green-600 hover:bg-green-100" : "text-muted-foreground hover:bg-secondary"}`}
+                          className={`rounded p-1.5 ${p.isActive ? "text-blue-600 hover:bg-blue-100" : "text-muted-foreground hover:bg-secondary"}`}
                           title={p.isActive ? "Désactiver" : "Activer"}
                         >
                           {p.isActive ? (

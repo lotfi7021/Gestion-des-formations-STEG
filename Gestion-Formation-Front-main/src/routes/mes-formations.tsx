@@ -249,7 +249,7 @@ function SessionCard({ session }: { session: any }) {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="font-display text-2xl">{session.formation?.titre || "Formation"}</h2>
-              <Badge className="bg-green-600 text-white text-xs">Payé</Badge>
+              <Badge className="bg-blue-600 text-white text-xs">Payé</Badge>
             </div>
             <div className="mt-3 flex flex-wrap gap-4 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5">

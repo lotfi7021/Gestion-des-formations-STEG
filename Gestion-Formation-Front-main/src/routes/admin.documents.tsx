@@ -296,7 +296,7 @@ function AdminDocuments() {
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Documents signés</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-5">
-          <span className="grid h-9 w-9 place-items-center rounded-md bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+          <span className="grid h-9 w-9 place-items-center rounded-md bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
             <FileSignature className="h-4 w-4" />
           </span>
           <p className="mt-4 font-display text-3xl">{sigCount}</p>

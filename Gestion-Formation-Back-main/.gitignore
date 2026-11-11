@@ -19,3 +19,6 @@ npm-debug.log*
 # Environment
 .env
 .env.local
+
+# Uploaded files (generated at runtime)
+uploads/

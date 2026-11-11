@@ -304,7 +304,7 @@ Utilise des émojis avec parcimonie.`;
             'Authorization': `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
+            model: 'qwen/qwen3.6-27b',
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: question },
@@ -451,7 +451,7 @@ Extrais TOUS les paramètres fournis. Si un paramètre obligatoire manque, tente
           'Authorization': `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: 'qwen/qwen3.6-27b',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: question },
@@ -507,7 +507,7 @@ Si action: {"type": "action", "action": "nom_action", "parameters": {"champ": "v
           'Authorization': `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: 'qwen/qwen3.6-27b',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: question },

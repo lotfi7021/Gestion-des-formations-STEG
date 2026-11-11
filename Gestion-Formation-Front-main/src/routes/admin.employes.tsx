@@ -339,7 +339,7 @@ function AdminEmployes() {
                               toggleMutation.mutate({ id: p.userId!, isActive: !p.userActive })
                             }
                             disabled={toggleMutation.isPending}
-                            className={`rounded p-1.5 ${p.userActive ? "text-green-600 hover:bg-green-100" : "text-muted-foreground hover:bg-secondary"}`}
+                            className={`rounded p-1.5 ${p.userActive ? "text-blue-600 hover:bg-blue-100" : "text-muted-foreground hover:bg-secondary"}`}
                             title={p.userActive ? "Désactiver" : "Activer"}
                           >
                             {p.userActive ? (

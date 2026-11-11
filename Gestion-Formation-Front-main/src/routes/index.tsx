@@ -129,7 +129,7 @@ function Index() {
           </div>
 
           <div className="md:col-span-5">
-            <div className="relative rounded-2xl border border-border bg-card p-6 shadow-[0_30px_80px_-40px_oklch(0.32_0.07_165/0.4)]">
+            <div className="relative rounded-2xl border border-border bg-card p-6 shadow-[0_30px_80px_-40px_oklch(0.45_0.15_250/0.4)]">
               <div className="flex items-center justify-between border-b border-border pb-4">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">

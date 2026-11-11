@@ -557,7 +557,7 @@ function AdminSessions() {
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {s.isCompleted ? (
-                      <span className="hidden md:flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
+                      <span className="hidden md:flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700">
                         <CheckCircle className="h-3 w-3" /> Terminée
                       </span>
                     ) : s.isCancelled ? (
@@ -632,7 +632,7 @@ function AdminSessions() {
                         <button
                           onClick={() => completeMutation.mutate(s.id)}
                           disabled={completeMutation.isPending}
-                          className="flex w-full items-center justify-center gap-2 rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm font-medium text-green-700 hover:bg-green-100 disabled:opacity-50"
+                          className="flex w-full items-center justify-center gap-2 rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
                         >
                           {completeMutation.isPending ? (
                             <Loader2 className="h-4 w-4 animate-spin" />

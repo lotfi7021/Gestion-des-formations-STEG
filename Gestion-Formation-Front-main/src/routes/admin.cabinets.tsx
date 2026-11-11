@@ -232,7 +232,7 @@ function SessionDetailDialog({
               {session.isCancelled ? (
                 <Badge variant="destructive">Annulée</Badge>
               ) : session.isCompleted ? (
-                <Badge className="bg-green-600">Terminée</Badge>
+                <Badge className="bg-blue-600">Terminée</Badge>
               ) : (
                 <Badge>Active</Badge>
               )}
@@ -491,7 +491,7 @@ function CabinetDetail({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 px-2 text-xs text-green-600 hover:text-green-700"
+                        className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700"
                         onClick={(e) => {
                           e.stopPropagation();
                           takeFormateur.mutate(f.id);
@@ -545,7 +545,7 @@ function CabinetDetail({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 px-2 text-xs text-green-600 hover:text-green-700"
+                        className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700"
                         onClick={(e) => {
                           e.stopPropagation();
                           takeFormation.mutate(f.id);
@@ -596,7 +596,7 @@ function CabinetDetail({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 px-2 text-xs text-green-600 hover:text-green-700"
+                        className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700"
                         onClick={(e) => {
                           e.stopPropagation();
                           takeSession.mutate(s.id);
@@ -794,7 +794,7 @@ function AdminCabinets() {
                   <button
                     onClick={() => toggleMutation.mutate({ id: c.id, isActive: !c.isActive })}
                     disabled={toggleMutation.isPending}
-                    className={`rounded p-1.5 ${c.isActive ? "text-green-600 hover:bg-green-100" : "text-muted-foreground hover:bg-secondary"}`}
+                    className={`rounded p-1.5 ${c.isActive ? "text-blue-600 hover:bg-blue-100" : "text-muted-foreground hover:bg-secondary"}`}
                     title={c.isActive ? "Désactiver" : "Activer"}
                   >
                     {c.isActive ? (

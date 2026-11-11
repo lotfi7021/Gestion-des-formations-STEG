@@ -178,7 +178,7 @@ function AdminPaiementsPage() {
                 <div key={ins.id} className="rounded-xl border border-border bg-card p-4 opacity-80">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
-                      <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
+                      <CheckCircle className="h-5 w-5 text-blue-600 shrink-0" />
                       <div>
                         <p className="font-medium text-sm">{s.formation?.titre || "Formation"}</p>
                         <p className="text-xs text-muted-foreground">
