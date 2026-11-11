@@ -38,7 +38,7 @@ export class SeedService implements OnApplicationBootstrap {
         localisation: 'Tunis',
       },
     ];
-
+//hjjhjy
     for (const d of directions) {
       const dir = await this.entrepriseRepository.findOneBy({ email: d.email });
       if (!dir) {
