@@ -29,6 +29,7 @@ export const formationSchema = z.object({
   tarif: z.number().min(0, "Le tarif ne peut pas être négatif").optional(),
   dureeEnJours: z.number().min(1, "Minimum 1 jour").max(365, "Maximum 365 jours").optional(),
   programme: z.string().optional(),
+  imageUrl: z.string().optional(),
 });
 
 export const employeSchema = z.object({
@@ -49,6 +50,7 @@ export const employeSchema = z.object({
     .regex(/^(\+216)?\d{8}$/, "Numéro invalide (ex: +216XXXXXXXX)")
     .optional()
     .or(z.literal("")),
+  entrepriseText: z.string().optional(),
 });
 
 export const formateurSchema = z.object({
@@ -78,6 +80,7 @@ export const sessionSchema = z
     formationId: z.string().min(1, "Formation requise"),
     participantIds: z.array(z.string()).optional(),
     formateurIds: z.array(z.string()).optional(),
+    capaciteMax: z.union([z.string(), z.number()]).optional(),
   })
   .refine((d) => !d.dateDebut || !d.dateFin || new Date(d.dateFin) > new Date(d.dateDebut), {
     message: "La date de fin doit être après la date de début",
@@ -89,6 +92,13 @@ export const profileSchema = z.object({
     .string()
     .min(3, "Minimum 3 caractères")
     .regex(/^[a-zA-Z0-9._-]+$/, "Lettres, chiffres, . _ - uniquement"),
+  nom: z.string().max(255, "Maximum 255 caractères").optional(),
+  prenom: z.string().max(255, "Maximum 255 caractères").optional(),
+  telephone: z
+    .string()
+    .regex(/^(\+216)?\d{8}$/, "Numéro invalide (ex: +216XXXXXXXX)")
+    .optional()
+    .or(z.literal("")),
 });
 
 export const changePasswordSchema = z

@@ -29,7 +29,7 @@ export class SessionService {
 
   async create(dto: CreateSessionDto): Promise<Session> {
     const formation = await this.formationRepository.findOneBy({ id: dto.formationId });
-    if (!formation) throw new NotFoundException(`Formation #${dto.formationId} not found`);
+    if (!formation) throw new NotFoundException(`Formation #${dto.formationId} introuvable`);
 
     const session = this.sessionRepository.create({
       ...dto,
@@ -117,7 +117,7 @@ export class SessionService {
       where: { id },
       relations: { formation: true, participants: true, formateurs: true, presences: true, evaluations: true },
     });
-    if (!session) throw new NotFoundException(`Session #${id} not found`);
+    if (!session) throw new NotFoundException(`Session #${id} introuvable`);
     return session;
   }
 
@@ -173,12 +173,11 @@ export class SessionService {
       where: { id },
       relations: { formation: true, participants: true, formateurs: true },
     });
-    if (!session) throw new NotFoundException(`Session #${id} not found`);
+    if (!session) throw new NotFoundException(`Session #${id} introuvable`);
 
     const doc = new PDFDocument({ margin: 40, size: 'A4' });
     const buffers: Buffer[] = [];
     doc.on('data', (chunk) => buffers.push(chunk));
-    doc.on('end', () => {});
 
     const formatDate = (d: Date) =>
       d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -268,7 +267,7 @@ export class SessionService {
         where: { id },
         relations: { presences: true, certificats: true, evaluations: true, documents: true },
       });
-      if (!session) throw new NotFoundException(`Session #${id} not found`);
+      if (!session) throw new NotFoundException(`Session #${id} introuvable`);
 
       // Delete join table records first
       await tx.query(`DELETE FROM session_participants WHERE session_id = ?`, [id]);

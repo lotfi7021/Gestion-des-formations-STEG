@@ -8,6 +8,7 @@ import { UserRole } from '../../common/enums';
 import { MailService } from '../mail/mail.service';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../../common/enums';
+import { brandedEmailHtml } from '../../common/email-helper';
 
 @Injectable()
 export class UserService {
@@ -187,7 +188,7 @@ export class UserService {
       where: { id },
       relations: { entreprise: true, notifications: true },
     });
-    if (!user) throw new NotFoundException(`User #${id} not found`);
+    if (!user) throw new NotFoundException(`Utilisateur #${id} introuvable`);
     return user;
   }
 
@@ -199,7 +200,7 @@ export class UserService {
     const existing = await this.userRepository.findOne({
       where: [{ username: dto.username }, { email: dto.email }],
     });
-    if (existing) throw new ConflictException('Username or email already exists');
+    if (existing) throw new ConflictException('Ce nom d\'utilisateur ou cet email existe déjà');
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
     const user = this.userRepository.create({
@@ -221,51 +222,8 @@ export class UserService {
     return this.userRepository.save(user);
   }
 
-  async cloneFormateurForPlatform(id: string): Promise<User> {
-    const original = await this.findOne(id);
-    const baseEmail = original.email;
-    let newEmail = baseEmail;
-    let suffix = 0;
-    while (await this.userRepository.findOne({ where: { email: newEmail } })) {
-      suffix++;
-      const [local] = baseEmail.split('@');
-      newEmail = `${local}-plateforme${suffix > 1 ? suffix : ''}@${baseEmail.split('@')[1]}`;
-    }
-    const username = newEmail.split('@')[0].replace(/[^a-zA-Z0-9._-]/g, '_');
-    const tempPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-2).toUpperCase();
-    const hashedPassword = await bcrypt.hash(tempPassword, 10);
-    const clone = this.userRepository.create({
-      username,
-      email: newEmail,
-      password: hashedPassword,
-      role: UserRole.FORMATEUR,
-      isActive: true,
-      nom: original.nom,
-      prenom: original.prenom,
-      telephone: original.telephone,
-      qualifications: original.qualifications,
-      specialites: original.specialites,
-      biographie: original.biographie,
-      disponibilites: original.disponibilites,
-      cvUrl: original.cvUrl,
-      programmeUrl: original.programmeUrl,
-      modeleCnfcppUrl: original.modeleCnfcppUrl,
-      feuillePresenceUrl: original.feuillePresenceUrl,
-      attestationUrl: original.attestationUrl,
-    });
-    const saved = await this.userRepository.save(clone);
-
-    await this.mailService.send({
-      to: saved.email,
-      subject: 'Bienvenue sur steg_form — Vos identifiants de connexion',
-      html: this.welcomeEmailHtml(saved, tempPassword, 'formateur'),
-    });
-
-    return saved;
-  }
-
   async remove(id: string): Promise<void> {
-    const user = await this.findOne(id);
+    await this.findOne(id);
     await this.userRepository.manager.transaction(async (manager) => {
       await manager.query('DELETE FROM session_formateurs WHERE user_id = ?', [id]);
       await manager.query('DELETE FROM session_participants WHERE user_id = ?', [id]);
@@ -289,15 +247,7 @@ export class UserService {
   }
 
   private welcomeEmailHtml(user: User, tempPassword: string, role: string): string {
-    return `
-      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 560px; margin: auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
-        <div style="background: #0a7c6e; padding: 28px 32px;">
-          <table><tr>
-            <td style="width: 40px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 8px; text-align: center; vertical-align: middle; font-size: 22px; font-weight: 700; color: #fff;">F</td>
-            <td style="padding-left: 12px; font-size: 22px; font-weight: 700; color: #ffffff;">steg_form</td>
-          </tr></table>
-        </div>
-        <div style="padding: 36px 32px;">
+    return brandedEmailHtml(`
           <p style="margin: 0 0 8px; color: #374151; font-size: 15px;">Bonjour <strong style="color: #0a7c6e;">${user.prenom} ${user.nom}</strong>,</p>
           <p style="margin: 0 0 20px; color: #374151; font-size: 15px; line-height: 1.6;">
             Vous avez été ajouté en tant que <strong>${role}</strong> sur la plateforme steg_form.
@@ -310,11 +260,6 @@ export class UserService {
             </table>
           </div>
           <a href="${process.env.FRONTEND_URL || 'http://localhost:8081'}/connexion" style="display: inline-block; background: #0a7c6e; color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">Se connecter</a>
-          <p style="margin: 16px 0 0; color: #9ca3af; font-size: 12px;">Nous vous recommandons de changer votre mot de passe après la première connexion.</p>
-        </div>
-        <div style="background: #f9fafb; border-top: 1px solid #e5e7eb; padding: 20px 32px; text-align: center;">
-          <p style="margin: 0; color: #9ca3af; font-size: 12px;">Cet email a été envoyé automatiquement depuis steg_form.</p>
-        </div>
-      </div>`;
+          <p style="margin: 16px 0 0; color: #9ca3af; font-size: 12px;">Nous vous recommandons de changer votre mot de passe après la première connexion.</p>`);
   }
 }

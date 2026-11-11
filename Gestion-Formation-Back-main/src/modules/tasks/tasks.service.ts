@@ -28,6 +28,9 @@ export class TasksService {
 
     const now = new Date();
     const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    // Fenêtre anti-doublon : si un rappel identique a déjà été créé depuis moins
+    // de 23h, on ne le recrée pas (la tâche s'exécute toutes les heures).
+    const dedupSince = new Date(now.getTime() - 23 * 60 * 60 * 1000);
 
     const sessions = await this.sessionRepository.find({
       where: { dateDebut: Between(now, in24h) },
@@ -36,26 +39,49 @@ export class TasksService {
 
     for (const session of sessions) {
       const label = `"${session.formation?.titre}" le ${session.dateDebut.toLocaleDateString('fr-FR')} à ${session.dateDebut.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+      const message = `Votre session ${label} commence dans moins de 24h.`;
 
       for (const participant of session.participants || []) {
-        await this.notificationService.create({
-          type: NotificationType.RAPPEL_SESSION,
-          titre: 'Session imminente',
-          message: `Votre session ${label} commence dans moins de 24h.`,
-          userId: participant.id,
-          lienAction: '/mes-formations',
-        });
+        await this.sendReminderOnce(participant.id, message, '/mes-formations', dedupSince);
       }
 
       for (const formateur of session.formateurs || []) {
-        await this.notificationService.create({
-          type: NotificationType.RAPPEL_SESSION,
-          titre: 'Session imminente',
-          message: `Votre session ${label} commence dans moins de 24h.`,
-          userId: formateur.id,
-          lienAction: '/formateur/dashboard',
-        });
+        await this.sendReminderOnce(formateur.id, message, '/formateur/dashboard', dedupSince);
       }
+    }
+  }
+
+  /**
+   * Crée un rappel « Session imminente » une seule fois par fenêtre de déduplication.
+   * Une erreur sur un destinataire n'interrompt pas les envois suivants.
+   */
+  private async sendReminderOnce(
+    userId: string,
+    message: string,
+    lienAction: string,
+    dedupSince: Date,
+  ): Promise<void> {
+    const titre = 'Session imminente';
+    try {
+      const alreadySent = await this.notificationService.wasRecentlySent(
+        userId,
+        titre,
+        message,
+        dedupSince,
+      );
+      if (alreadySent) return;
+
+      await this.notificationService.create({
+        type: NotificationType.RAPPEL_SESSION,
+        titre,
+        message,
+        userId,
+        lienAction,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Échec du rappel à l'utilisateur ${userId} : ${(error as Error).message}`,
+      );
     }
   }
 
@@ -79,16 +105,22 @@ export class TasksService {
       const label = `"${session.formation?.titre}" le ${session.dateDebut.toLocaleDateString('fr-FR')} à ${heure} (${lieu})`;
 
       for (const participant of session.participants || []) {
-        await this.mailService.send({
-          to: participant.email,
-          subject: `Rappel : votre session "${session.formation?.titre}" commence bientôt`,
-          html: emailHtml(
-            `Bonjour ${participant.prenom} ${participant.nom}`,
-            `Votre session ${label} commence dans moins de 24h. Merci de vous présenter à l'heure.`,
-            '/mes-formations',
-            'Voir mes formations',
-          ),
-        });
+        try {
+          await this.mailService.send({
+            to: participant.email,
+            subject: `Rappel : votre session "${session.formation?.titre}" commence bientôt`,
+            html: emailHtml(
+              `Bonjour ${participant.prenom} ${participant.nom}`,
+              `Votre session ${label} commence dans moins de 24h. Merci de vous présenter à l'heure.`,
+              '/mes-formations',
+              'Voir mes formations',
+            ),
+          });
+        } catch (error) {
+          this.logger.error(
+            `Échec de l'email de rappel à ${participant.email} : ${(error as Error).message}`,
+          );
+        }
       }
     }
   }

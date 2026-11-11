@@ -20,14 +20,14 @@ import {
   XCircle,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { ProtectedRoute } from "@/components/protected-route";
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/auth-context";
-import { API_URL, API_BASE } from "@/lib/api/client";
+import { API_URL, API_BASE, getAccessToken } from "@/lib/api/client";
 import type { Session } from "@/lib/api/sessions";
 import { getMySessions } from "@/lib/api/sessions";
+import { queryKeys } from "@/lib/api/query-keys";
 import { getMyInscriptions } from "@/lib/api/inscriptions";
 import { getSessionDocuments, type SessionDocument } from "@/lib/api/session-documents";
 import {
@@ -35,8 +35,12 @@ import {
   getCertificateDownloadUrl,
   type Certificate,
 } from "@/lib/api/certificates";
+import { requireAuth } from "@/lib/route-auth";
 
 export const Route = createFileRoute("/mes-formations")({
+  beforeLoad: () => {
+    requireAuth();
+  },
   head: () => ({
     meta: [{ title: "Mes formations — steg_form" }],
   }),
@@ -48,12 +52,12 @@ function MesFormationsPage() {
   const isFormateur = user?.role === "formateur";
 
   const { data: sessions, isLoading: loadingSessions } = useQuery({
-    queryKey: ["my-sessions", isFormateur ? "enrolled" : "all"],
+    queryKey: queryKeys.mySessions(isFormateur ? "enrolled" : "all"),
     queryFn: () => getMySessions(isFormateur ? "enrolled" : undefined),
   });
 
   const { data: inscriptions, isLoading: loadingInscriptions } = useQuery({
-    queryKey: ["my-inscriptions"],
+    queryKey: queryKeys.myInscriptions,
     queryFn: getMyInscriptions,
   });
 
@@ -65,217 +69,215 @@ function MesFormationsPage() {
   const totalCount = confirmedCount + pendingInscriptions.length + refusedInscriptions.length;
 
   return (
-    <ProtectedRoute>
-      <PageShell>
-        <div className="mx-auto max-w-4xl px-6 py-16">
-          <div className="flex flex-wrap items-end justify-between gap-4 animate-fade-up">
-            <div>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
-                <BookOpen className="h-3 w-3" /> Mon parcours
-              </span>
-              <h1 className="mt-3 font-display text-5xl text-gradient-brand">Mes formations</h1>
-              <p className="mt-2 text-muted-foreground">
-                Retrouvez toutes les sessions auxquelles vous êtes inscrit.
-              </p>
+    <PageShell>
+      <div className="mx-auto max-w-4xl px-6 py-16">
+        <div className="flex flex-wrap items-end justify-between gap-4 animate-fade-up">
+          <div>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
+              <BookOpen className="h-3 w-3" /> Mon parcours
+            </span>
+            <h1 className="mt-3 font-display text-5xl text-gradient-brand">Mes formations</h1>
+            <p className="mt-2 text-muted-foreground">
+              Retrouvez toutes les sessions auxquelles vous êtes inscrit.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl border border-border bg-card px-4 py-2.5 text-center shadow-[var(--shadow-soft)]">
+              <div className="font-display text-2xl leading-none text-primary">
+                {confirmedCount}
+              </div>
+              <div className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+                Confirmées
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl border border-border bg-card px-4 py-2.5 text-center shadow-[var(--shadow-soft)]">
-                <div className="font-display text-2xl leading-none text-primary">
-                  {confirmedCount}
-                </div>
-                <div className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-                  Confirmées
-                </div>
+            <div className="rounded-xl border border-border bg-card px-4 py-2.5 text-center shadow-[var(--shadow-soft)]">
+              <div className="font-display text-2xl leading-none">{totalCount}</div>
+              <div className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+                Total
               </div>
-              <div className="rounded-xl border border-border bg-card px-4 py-2.5 text-center shadow-[var(--shadow-soft)]">
-                <div className="font-display text-2xl leading-none">{totalCount}</div>
-                <div className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-                  Total
-                </div>
-              </div>
-              {!isFormateur && (
-                <Link
-                  to="/participant/calendrier"
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-sm font-medium text-primary transition-all hover:bg-primary hover:text-primary-foreground hover:shadow-[var(--shadow-glow)]"
-                >
-                  Calendrier <ArrowRight className="h-4 w-4" />
-                </Link>
-              )}
+            </div>
+            {!isFormateur && (
+              <Link
+                to="/participant/calendrier"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-sm font-medium text-primary transition-all hover:bg-primary hover:text-primary-foreground hover:shadow-[var(--shadow-glow)]"
+              >
+                Calendrier <ArrowRight className="h-4 w-4" />
+              </Link>
+            )}
+          </div>
+        </div>
+
+        {pendingInscriptions.length > 0 && (
+          <div className="mt-10 animate-fade-up">
+            <h2 className="mb-3 flex items-center gap-2 font-display text-xl text-amber-600 dark:text-amber-400">
+              <Wallet className="h-4 w-4" /> Inscriptions en attente de paiement
+            </h2>
+            <div className="space-y-3">
+              {pendingInscriptions.map((ins) => {
+                const s = ins.session;
+                const d = new Date(s.dateDebut);
+                return (
+                  <div
+                    key={ins.id}
+                    className="overflow-hidden rounded-2xl border border-amber-200/80 bg-amber-50/70 p-6 shadow-[var(--shadow-soft)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)] dark:border-amber-800/60 dark:bg-amber-950/30"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="grid h-8 w-8 place-items-center rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-900/60 dark:text-amber-400">
+                            <Wallet className="h-4 w-4" />
+                          </span>
+                          <h3 className="font-display text-xl">
+                            {s.formation?.titre || "Formation"}
+                          </h3>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-4 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1.5">
+                            <Calendar className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                            {d.toLocaleDateString("fr-FR", {
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric",
+                            })}
+                          </span>
+                          {s.lieu && (
+                            <span className="flex items-center gap-1.5">
+                              <MapPin className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                              {s.lieu}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        <Badge
+                          variant="outline"
+                          className="border-amber-400 text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/50"
+                        >
+                          <Clock className="mr-1 h-3 w-3" />
+                          Paiement en attente
+                        </Badge>
+                        <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                          {ins.montant} DT à payer en espèces
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
+        )}
 
-          {pendingInscriptions.length > 0 && (
-            <div className="mt-10 animate-fade-up">
-              <h2 className="mb-3 flex items-center gap-2 font-display text-xl text-amber-600 dark:text-amber-400">
-                <Wallet className="h-4 w-4" /> Inscriptions en attente de paiement
-              </h2>
-              <div className="space-y-3">
-                {pendingInscriptions.map((ins) => {
-                  const s = ins.session;
-                  const d = new Date(s.dateDebut);
-                  return (
-                    <div
-                      key={ins.id}
-                      className="overflow-hidden rounded-2xl border border-amber-200/80 bg-amber-50/70 p-6 shadow-[var(--shadow-soft)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)] dark:border-amber-800/60 dark:bg-amber-950/30"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="grid h-8 w-8 place-items-center rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-900/60 dark:text-amber-400">
-                              <Wallet className="h-4 w-4" />
-                            </span>
-                            <h3 className="font-display text-xl">
-                              {s.formation?.titre || "Formation"}
-                            </h3>
-                          </div>
-                          <div className="mt-3 flex flex-wrap gap-4 text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1.5">
-                              <Calendar className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                              {d.toLocaleDateString("fr-FR", {
-                                day: "numeric",
-                                month: "long",
-                                year: "numeric",
-                              })}
-                            </span>
-                            {s.lieu && (
-                              <span className="flex items-center gap-1.5">
-                                <MapPin className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                                {s.lieu}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex shrink-0 flex-col items-end gap-2">
-                          <Badge
-                            variant="outline"
-                            className="border-amber-400 text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/50"
-                          >
-                            <Clock className="mr-1 h-3 w-3" />
-                            Paiement en attente
-                          </Badge>
-                          <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">
-                            {ins.montant} DT à payer en espèces
+        {refusedInscriptions.length > 0 && (
+          <div className="mt-10 animate-fade-up">
+            <h2 className="mb-3 flex items-center gap-2 font-display text-xl text-red-600 dark:text-red-400">
+              <XCircle className="h-4 w-4" /> Inscriptions refusées
+            </h2>
+            <div className="space-y-3">
+              {refusedInscriptions.map((ins) => {
+                const s = ins.session;
+                const d = new Date(s.dateDebut);
+                return (
+                  <div
+                    key={ins.id}
+                    className="overflow-hidden rounded-2xl border border-red-200/80 bg-red-50/70 p-6 shadow-[var(--shadow-soft)] opacity-90 transition-all hover:opacity-100 dark:border-red-800/60 dark:bg-red-950/30"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="grid h-8 w-8 place-items-center rounded-lg bg-red-100 text-red-600 dark:bg-red-900/60 dark:text-red-400">
+                            <XCircle className="h-4 w-4" />
                           </span>
+                          <h3 className="font-display text-xl">
+                            {s.formation?.titre || "Formation"}
+                          </h3>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-4 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1.5">
+                            <Calendar className="h-4 w-4 text-red-600 dark:text-red-400" />
+                            {d.toLocaleDateString("fr-FR", {
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric",
+                            })}
+                          </span>
+                          {s.lieu && (
+                            <span className="flex items-center gap-1.5">
+                              <MapPin className="h-4 w-4 text-red-600 dark:text-red-400" />
+                              {s.lieu}
+                            </span>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {refusedInscriptions.length > 0 && (
-            <div className="mt-10 animate-fade-up">
-              <h2 className="mb-3 flex items-center gap-2 font-display text-xl text-red-600 dark:text-red-400">
-                <XCircle className="h-4 w-4" /> Inscriptions refusées
-              </h2>
-              <div className="space-y-3">
-                {refusedInscriptions.map((ins) => {
-                  const s = ins.session;
-                  const d = new Date(s.dateDebut);
-                  return (
-                    <div
-                      key={ins.id}
-                      className="overflow-hidden rounded-2xl border border-red-200/80 bg-red-50/70 p-6 shadow-[var(--shadow-soft)] opacity-90 transition-all hover:opacity-100 dark:border-red-800/60 dark:bg-red-950/30"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="grid h-8 w-8 place-items-center rounded-lg bg-red-100 text-red-600 dark:bg-red-900/60 dark:text-red-400">
-                              <XCircle className="h-4 w-4" />
-                            </span>
-                            <h3 className="font-display text-xl">
-                              {s.formation?.titre || "Formation"}
-                            </h3>
-                          </div>
-                          <div className="mt-3 flex flex-wrap gap-4 text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1.5">
-                              <Calendar className="h-4 w-4 text-red-600 dark:text-red-400" />
-                              {d.toLocaleDateString("fr-FR", {
-                                day: "numeric",
-                                month: "long",
-                                year: "numeric",
-                              })}
-                            </span>
-                            {s.lieu && (
-                              <span className="flex items-center gap-1.5">
-                                <MapPin className="h-4 w-4 text-red-600 dark:text-red-400" />
-                                {s.lieu}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex shrink-0 flex-col items-end gap-2">
-                          <Badge
-                            variant="outline"
-                            className="border-red-400 text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/50"
-                          >
-                            Refusé
-                          </Badge>
-                          <span className="text-sm font-semibold text-red-700 dark:text-red-300">
-                            {ins.montant} DT
-                          </span>
-                        </div>
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        <Badge
+                          variant="outline"
+                          className="border-red-400 text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/50"
+                        >
+                          Refusé
+                        </Badge>
+                        <span className="text-sm font-semibold text-red-700 dark:text-red-300">
+                          {ins.montant} DT
+                        </span>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })}
             </div>
-          )}
+          </div>
+        )}
 
-          {isLoading ? (
-            <div className="mt-12 space-y-4">
-              <div className="skeleton h-8 w-52 rounded-xl" />
-              <div className="skeleton h-40 rounded-2xl" />
-              <div className="skeleton h-40 rounded-2xl" />
+        {isLoading ? (
+          <div className="mt-12 space-y-4">
+            <div className="skeleton h-8 w-52 rounded-xl" />
+            <div className="skeleton h-40 rounded-2xl" />
+            <div className="skeleton h-40 rounded-2xl" />
+          </div>
+        ) : sessions && sessions.length > 0 ? (
+          <div className="mt-10 space-y-4 animate-fade-up">
+            <h2 className="flex items-center gap-2 font-display text-xl">
+              <CheckCircle2 className="h-4 w-4 text-primary" /> Inscriptions confirmées
+            </h2>
+            {sessions.map((s: Session) => (
+              <SessionCard key={s.id} session={s} />
+            ))}
+          </div>
+        ) : (
+          <div className="paper-grain mt-12 rounded-2xl border border-dashed border-border bg-card p-12 text-center">
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-secondary">
+              <BookOpen className="h-8 w-8 text-muted-foreground" />
             </div>
-          ) : sessions && sessions.length > 0 ? (
-            <div className="mt-10 space-y-4 animate-fade-up">
-              <h2 className="flex items-center gap-2 font-display text-xl">
-                <CheckCircle2 className="h-4 w-4 text-primary" /> Inscriptions confirmées
-              </h2>
-              {sessions.map((s: Session) => (
-                <SessionCard key={s.id} session={s} />
-              ))}
-            </div>
-          ) : (
-            <div className="paper-grain mt-12 rounded-2xl border border-dashed border-border bg-card p-12 text-center">
-              <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-secondary">
-                <BookOpen className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <p className="mt-4 font-display text-2xl">Aucune formation pour le moment</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Parcourez le catalogue pour trouver une formation qui vous intéresse.
-              </p>
-              <Link
-                to="/catalogue"
-                className="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-[var(--shadow-glow)] transition-all hover:bg-primary/90 hover:shadow-[var(--shadow-lift)]"
-              >
-                Parcourir le catalogue <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-          )}
-        </div>
-      </PageShell>
-    </ProtectedRoute>
+            <p className="mt-4 font-display text-2xl">Aucune formation pour le moment</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Parcourez le catalogue pour trouver une formation qui vous intéresse.
+            </p>
+            <Link
+              to="/catalogue"
+              className="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-[var(--shadow-glow)] transition-all hover:bg-primary/90 hover:shadow-[var(--shadow-lift)]"
+            >
+              Parcourir le catalogue <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        )}
+      </div>
+    </PageShell>
   );
 }
 
 function SessionCard({ session }: { session: Session }) {
   const [expanded, setExpanded] = useState(false);
   const d = new Date(session.dateDebut);
-  const token = localStorage.getItem("access_token");
+  const token = getAccessToken();
 
   const { data: documents } = useQuery({
-    queryKey: ["session-documents", session.id],
+    queryKey: queryKeys.sessionDocuments(session.id),
     queryFn: () => getSessionDocuments(session.id),
     enabled: expanded,
   });
 
   const { data: allCerts } = useQuery({
-    queryKey: ["my-certificates"],
+    queryKey: queryKeys.myCertificates,
     queryFn: getMyCertificates,
   });
 

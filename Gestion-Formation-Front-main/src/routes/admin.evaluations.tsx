@@ -4,6 +4,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { getEvaluations, type Evaluation } from "@/lib/api/evaluations";
 import { getFormations } from "@/lib/api/formations";
 import { getFormateurs } from "@/lib/api/formateurs";
+import { queryKeys } from "@/lib/api/query-keys";
 import {
   Star,
   Loader2,
@@ -21,6 +22,7 @@ import {
 import { useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { StarRating } from "@/components/star-rating";
 
 export const Route = createFileRoute("/admin/evaluations")({
   head: () => ({ meta: [{ title: "Évaluations — steg_form Admin" }] }),
@@ -69,22 +71,6 @@ const sectionGroups = [
   },
 ];
 
-function StarRating({ value, size = "sm" }: { value: number; size?: "sm" | "md" }) {
-  const cls = size === "md" ? "h-5 w-5" : "h-3.5 w-3.5";
-  return (
-    <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map((s) => (
-        <Star
-          key={s}
-          className={`${cls} ${
-            s <= Math.round(value) ? "fill-ochre text-ochre" : "text-muted-foreground/15"
-          }`}
-        />
-      ))}
-    </div>
-  );
-}
-
 function pct(val: number, total: number) {
   return total ? `${Math.round((val / total) * 100)}%` : "—";
 }
@@ -94,16 +80,19 @@ function AdminEvaluationsPage() {
   const [formateurFilter, setFormateurFilter] = useState("");
   const [selectedEval, setSelectedEval] = useState<Evaluation | null>(null);
   const { data: formations } = useQuery({
-    queryKey: ["formations"],
+    queryKey: queryKeys.formations,
     queryFn: () => getFormations(),
   });
   const { data: formateurs } = useQuery({
-    queryKey: ["formateurs"],
+    queryKey: queryKeys.formateurs,
     queryFn: () => getFormateurs(),
   });
 
   const { data: evaluations, isLoading } = useQuery({
-    queryKey: ["evaluations", formationFilter, formateurFilter],
+    queryKey: queryKeys.evaluations({
+      formationId: formationFilter,
+      formateurId: formateurFilter,
+    }),
     queryFn: () =>
       getEvaluations({
         formationId: formationFilter || undefined,
@@ -319,7 +308,11 @@ function AdminEvaluationsPage() {
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
-                        <StarRating value={e.note} size="md" />
+                        <StarRating
+                          value={e.note}
+                          className="h-5 w-5"
+                          emptyClassName="text-muted-foreground/15"
+                        />
                         <span className="font-display text-lg tabular-nums text-foreground">
                           {e.note}
                         </span>
@@ -429,7 +422,11 @@ function AdminEvaluationsPage() {
                     <Building className="h-4 w-4 text-primary" />
                     Appréciation CFP STIR
                   </p>
-                  <StarRating value={selectedEval.noteCfpStir} size="md" />
+                  <StarRating
+                    value={selectedEval.noteCfpStir}
+                    className="h-5 w-5"
+                    emptyClassName="text-muted-foreground/15"
+                  />
                 </div>
               )}
 

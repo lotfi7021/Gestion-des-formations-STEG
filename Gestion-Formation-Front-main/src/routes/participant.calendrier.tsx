@@ -14,11 +14,12 @@ import {
   FileText,
   AlertCircle,
 } from "lucide-react";
-import { ProtectedRoute } from "@/components/protected-route";
 import { PageShell } from "@/components/page-shell";
 import { getMySessions, type Session } from "@/lib/api/sessions";
 import { getFormation } from "@/lib/api/formations";
+import { queryKeys } from "@/lib/api/query-keys";
 import { API_URL } from "@/lib/api/client";
+import { requireAuth } from "@/lib/route-auth";
 import { DayPicker } from "react-day-picker";
 import { fr } from "date-fns/locale";
 import { format } from "date-fns";
@@ -26,11 +27,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/participant/calendrier")({
-  component: () => (
-    <ProtectedRoute requiredRole={["participant"]}>
-      <ParticipantCalendrier />
-    </ProtectedRoute>
-  ),
+  beforeLoad: () => {
+    requireAuth(["participant"]);
+  },
+  component: ParticipantCalendrier,
 });
 
 function sessionStatus(s: Session) {
@@ -45,7 +45,7 @@ function sessionStatus(s: Session) {
 
 function ParticipantCalendrier() {
   const { data: sessions, isLoading } = useQuery({
-    queryKey: ["my-sessions"],
+    queryKey: queryKeys.mySessions(),
     queryFn: () => getMySessions(),
   });
 
@@ -53,7 +53,7 @@ function ParticipantCalendrier() {
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const { data: selectedFormation } = useQuery({
-    queryKey: ["formation", selectedSession?.formation?.id],
+    queryKey: queryKeys.formation(selectedSession?.formation?.id),
     queryFn: () => getFormation(selectedSession!.formation!.id),
     enabled: !!selectedSession?.formation?.id,
   });

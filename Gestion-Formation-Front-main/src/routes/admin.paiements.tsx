@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/admin-shell";
+import { queryKeys } from "@/lib/api/query-keys";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -40,12 +41,12 @@ function AdminPaiementsPage() {
   const [refuseDialogId, setRefuseDialogId] = useState<string | null>(null);
 
   const { data: inscriptions, isLoading } = useQuery({
-    queryKey: ["pending-inscriptions"],
+    queryKey: queryKeys.pendingInscriptions,
     queryFn: getPendingInscriptions,
   });
 
   const { data: confirmed } = useQuery({
-    queryKey: ["confirmed-inscriptions"],
+    queryKey: queryKeys.confirmedInscriptions,
     queryFn: getConfirmedInscriptions,
   });
 
@@ -53,8 +54,8 @@ function AdminPaiementsPage() {
     mutationFn: (id: string) => confirmPayment(id),
     onSuccess: () => {
       toast.success("Paiement confirmé ! L'inscription a été validée.");
-      queryClient.invalidateQueries({ queryKey: ["pending-inscriptions"] });
-      queryClient.invalidateQueries({ queryKey: ["confirmed-inscriptions"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.pendingInscriptions });
+      queryClient.invalidateQueries({ queryKey: queryKeys.confirmedInscriptions });
     },
     onError: (err: Error) => {
       toast.error(err.message || "Erreur lors de la confirmation");
@@ -66,8 +67,8 @@ function AdminPaiementsPage() {
     onSuccess: () => {
       toast.success("Inscription refusée.");
       setRefuseDialogId(null);
-      queryClient.invalidateQueries({ queryKey: ["pending-inscriptions"] });
-      queryClient.invalidateQueries({ queryKey: ["confirmed-inscriptions"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.pendingInscriptions });
+      queryClient.invalidateQueries({ queryKey: queryKeys.confirmedInscriptions });
     },
     onError: (err: Error) => {
       toast.error(err.message || "Erreur lors du refus");

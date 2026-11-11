@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { join } from 'path';
@@ -10,8 +10,9 @@ import { User } from '../../entities/user.entity';
 import { Session } from '../../entities/session.entity';
 import { Formation } from '../../entities/formation.entity';
 import { NotificationService } from '../notification/notification.service';
-import { NotificationType } from '../../common/enums';
+import { NotificationType, UserRole } from '../../common/enums';
 import { SaveSignatureDto } from './dto/save-signature.dto';
+import { finalizePdf } from '../../common/pdf/finalize-pdf';
 
 @Injectable()
 export class SignatureService {
@@ -74,9 +75,13 @@ export class SignatureService {
     });
   }
 
-  async deleteSignature(id: string): Promise<void> {
-    const result = await this.signatureRepository.delete(id);
-    if (result.affected === 0) throw new NotFoundException('Signature introuvable');
+  async deleteSignature(id: string, requester: { sub: string; role: string }): Promise<void> {
+    const signature = await this.signatureRepository.findOneBy({ id });
+    if (!signature) throw new NotFoundException('Signature introuvable');
+    if (signature.userId !== requester.sub && requester.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Accès refusé à cette signature');
+    }
+    await this.signatureRepository.delete(id);
   }
 
   async generateConvention(sessionId: string, participantId: string, adminId: string): Promise<DocumentSigne> {
@@ -251,20 +256,28 @@ export class SignatureService {
     });
   }
 
-  async getDocumentsSignesBySession(sessionId: string): Promise<DocumentSigne[]> {
-    return this.documentSigneRepository.find({
+  async getDocumentsSignesBySession(
+    sessionId: string,
+    requester: { sub: string; role: string },
+  ): Promise<DocumentSigne[]> {
+    const documents = await this.documentSigneRepository.find({
       where: { sessionId },
       relations: { participant: true },
       order: { createdAt: 'DESC' },
     });
+    if (requester.role === UserRole.ADMIN) return documents;
+    return documents.filter((d) => d.participantId === requester.sub);
   }
 
-  async getDocumentSigne(id: string): Promise<DocumentSigne> {
+  async getDocumentSigne(id: string, requester: { sub: string; role: string }): Promise<DocumentSigne> {
     const doc = await this.documentSigneRepository.findOne({
       where: { id },
       relations: { session: true, participant: true },
     });
     if (!doc) throw new NotFoundException('Document introuvable');
+    if (doc.participantId !== requester.sub && requester.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Accès refusé à ce document');
+    }
     return doc;
   }
 
@@ -368,8 +381,7 @@ export class SignatureService {
     this.embedSignature(doc, participantSignature, 55, sigY + 5, 'Signature du participant', 230, 55);
     this.embedSignature(doc, adminSignature, 305, sigY + 5, "Signature de l'organisme", 230, 55);
 
-    doc.end();
-    return new Promise((r) => stream.on('finish', r));
+    return finalizePdf(doc, stream);
   }
 
   private async generateContratFormateurPdf(options: {
@@ -447,8 +459,7 @@ export class SignatureService {
     this.embedSignature(doc, formateurSignature, 55, sigY + 5, 'Signature du formateur', 230, 55);
     this.embedSignature(doc, adminSignature, 305, sigY + 5, "Signature de l'organisme", 230, 55);
 
-    doc.end();
-    return new Promise((r) => stream.on('finish', r));
+    return finalizePdf(doc, stream);
   }
 
 }

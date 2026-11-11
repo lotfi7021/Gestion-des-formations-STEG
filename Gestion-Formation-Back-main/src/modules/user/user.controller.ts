@@ -10,6 +10,7 @@ import { AdminGuard } from '../auth/guards/admin.guard';
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
+  @UseGuards(ManualJwtGuard, AdminGuard)
   @Post()
   create(@Body() dto: CreateUserDto) {
     return this.userService.create(dto);
@@ -21,16 +22,19 @@ export class UserController {
     return this.userService.findAll();
   }
 
+  @UseGuards(ManualJwtGuard, AdminGuard)
   @Get('participants')
   findParticipants() {
     return this.userService.findAllParticipants();
   }
 
+  @UseGuards(ManualJwtGuard, AdminGuard)
   @Post('participants')
   createParticipant(@Body() dto: CreateParticipantDto) {
     return this.userService.createParticipant(dto);
   }
 
+  @UseGuards(ManualJwtGuard, AdminGuard)
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.userService.findOne(id);
@@ -42,6 +46,7 @@ export class UserController {
     return this.userService.update(id, dto);
   }
 
+  @UseGuards(ManualJwtGuard, AdminGuard)
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.userService.remove(id);

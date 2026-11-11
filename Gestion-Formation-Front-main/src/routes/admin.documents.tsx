@@ -15,6 +15,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/admin-shell";
 import { SignatureModal } from "@/components/signature-modal";
+import { queryKeys } from "@/lib/api/query-keys";
 import {
   getAllDocumentsSignes,
   getAllSignatures,
@@ -75,34 +76,34 @@ function AdminDocuments() {
   const [selectedFormateur, setSelectedFormateur] = useState("");
 
   const { data: documents, isLoading: docsLoading } = useQuery({
-    queryKey: ["documents-signes"],
+    queryKey: queryKeys.documentsSignes,
     queryFn: getAllDocumentsSignes,
   });
 
   const { data: signatures, isLoading: sigsLoading } = useQuery({
-    queryKey: ["signatures-all"],
+    queryKey: queryKeys.signatures,
     queryFn: getAllSignatures,
   });
 
   const { data: sessions } = useQuery({
-    queryKey: ["sessions"],
+    queryKey: queryKeys.sessions,
     queryFn: () => getSessions(),
   });
 
   const { data: participants } = useQuery({
-    queryKey: ["participants"],
+    queryKey: queryKeys.participants,
     queryFn: getParticipants,
   });
 
   const { data: formateurs } = useQuery({
-    queryKey: ["formateurs"],
+    queryKey: queryKeys.formateurs,
     queryFn: () => getFormateurs(),
   });
 
   const verifyMutation = useMutation({
     mutationFn: (id: string) => verifySignature(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["signatures-all"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.signatures });
       toast.success("Signature vérifiée");
     },
     onError: (err: Error) => toast.error(err.message || "Erreur"),
@@ -111,7 +112,7 @@ function AdminDocuments() {
   const deleteSigMutation = useMutation({
     mutationFn: (id: string) => deleteSignature(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["signatures-all"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.signatures });
       toast.success("Signature supprimée");
     },
     onError: (err: Error) => toast.error(err.message || "Erreur"),
@@ -136,7 +137,7 @@ function AdminDocuments() {
       throw new Error("Type invalide");
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["documents-signes"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.documentsSignes });
       toast.success("Document généré avec succès");
       setGenDialog(null);
       resetGenForm();
@@ -161,7 +162,7 @@ function AdminDocuments() {
       actions={
         <div className="flex gap-2">
           <SignatureModal
-            onSigned={() => queryClient.invalidateQueries({ queryKey: ["signatures-all"] })}
+            onSigned={() => queryClient.invalidateQueries({ queryKey: queryKeys.signatures })}
           />
           <Dialog
             open={!!genDialog}

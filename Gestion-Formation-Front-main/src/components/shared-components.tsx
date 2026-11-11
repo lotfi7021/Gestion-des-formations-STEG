@@ -1,32 +1,20 @@
 import { useRouter } from "@tanstack/react-router";
 import { useRef, useState, useEffect } from "react";
 import { Bell, Moon, Sun, Loader2 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   getNotifications,
   markNotificationAsRead,
-  type Notification,
+  subscribeToNotifications,
+  type Notification as AppNotification,
 } from "@/lib/api/notifications";
+import { queryKeys } from "@/lib/api/query-keys";
+import { useDarkMode } from "@/hooks/use-dark-mode";
+import { useAuth } from "@/contexts/auth-context";
 
 export function DarkModeToggle() {
-  const [dark, setDark] = useState(false);
-
-  useEffect(() => {
-    const stored = localStorage.getItem("theme");
-    if (
-      stored === "dark" ||
-      (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches)
-    ) {
-      document.documentElement.classList.add("dark");
-      setDark(true);
-    }
-  }, []);
-
-  function toggle() {
-    const next = !dark;
-    document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("theme", next ? "dark" : "light");
-    setDark(next);
-  }
+  const { dark, toggle } = useDarkMode();
 
   return (
     <button
@@ -43,9 +31,9 @@ export function DarkModeToggle() {
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const [items, setItems] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -55,27 +43,32 @@ export function NotificationBell() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    if (!open) return;
-    setLoading(true);
-    getNotifications()
-      .then((data) => {
-        setItems(data);
-        setLoading(false);
-      })
-      .catch(() => {
-        setItems([]);
-        setLoading(false);
-      });
-  }, [open]);
+  const { data: items = [], isLoading: loading } = useQuery({
+    queryKey: queryKeys.notifications,
+    queryFn: getNotifications,
+    enabled: !!user,
+    refetchInterval: 60000,
+    staleTime: 15000,
+  });
 
-  async function markRead(id: string) {
-    try {
-      await markNotificationAsRead(id);
-      setItems((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
-    } catch {
-      // Échec silencieux assumé : la cloche se resynchronise à la prochaine ouverture.
-    }
+  useEffect(() => {
+    if (!user) return;
+    return subscribeToNotifications((notification: AppNotification) => {
+      queryClient.setQueryData<AppNotification[]>(queryKeys.notifications, (previous = []) => {
+        if (previous.some((item) => item.id === notification.id)) return previous;
+        return [notification, ...previous];
+      });
+      toast(notification.titre, { description: notification.message });
+    });
+  }, [user, queryClient]);
+
+  const markReadMutation = useMutation({
+    mutationFn: markNotificationAsRead,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.notifications }),
+  });
+
+  function markRead(id: string) {
+    markReadMutation.mutate(id);
   }
 
   const unread = items.filter((n) => !n.isRead);

@@ -9,4 +9,5 @@ export enum NotificationType {
   SESSION_PROCHAINE = 'session_prochaine',
   DOCUMENT_SIGNE = 'document_signe',
   SIGNATURE_DEMANDEE = 'signature_demandee',
+  POINTAGE = 'pointage',
 }

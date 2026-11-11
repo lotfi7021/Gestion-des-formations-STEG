@@ -209,9 +209,8 @@ export class RagService {
     filePath: string,
   ): Promise<{ text: string; page: number }[]> {
     // pdf-parse@1.1.1 exporte directement une fonction
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const pdfParse: (buf: Buffer) => Promise<{ text: string; numpages: number }> =
-      require('pdf-parse');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pdfParse: (buf: Buffer) => Promise<{ text: string; numpages: number }> = require('pdf-parse');
 
     const buffer = fs.readFileSync(filePath);
     const parsed = await pdfParse(buffer);

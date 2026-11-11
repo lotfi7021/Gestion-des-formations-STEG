@@ -1,4 +1,4 @@
-import { api, API_BASE } from "./client";
+import { api, API_BASE, getAuthHeaders } from "./client";
 
 export type LoginDto = {
   email: string;
@@ -37,19 +37,6 @@ export async function login(dto: LoginDto): Promise<AuthResponse> {
   return api.post<AuthResponse>("/auth/login", dto);
 }
 
-export async function register(dto: {
-  username: string;
-  email: string;
-  password: string;
-  role?: string;
-}): Promise<AuthResponse> {
-  return api.post<AuthResponse>("/auth/register", dto);
-}
-
-export async function refresh(refreshToken: string): Promise<AuthResponse> {
-  return api.post<AuthResponse>("/auth/refresh", { refreshToken });
-}
-
 export async function getProfile(): Promise<User> {
   return api.get<User>("/auth/profile");
 }
@@ -66,10 +53,9 @@ export async function updateProfile(dto: {
 export async function uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
   const formData = new FormData();
   formData.append("file", file);
-  const token = localStorage.getItem("access_token");
   const res = await fetch(`${API_BASE}/auth/upload-avatar`, {
     method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: getAuthHeaders(),
     body: formData,
   });
   if (!res.ok) {

@@ -86,7 +86,7 @@ export class FormationService {
         certificats: true,
       },
     });
-    if (!formation) throw new NotFoundException(`Formation #${id} not found`);
+    if (!formation) throw new NotFoundException(`Formation #${id} introuvable`);
     return formation;
   }
 
@@ -98,7 +98,7 @@ export class FormationService {
 
   async remove(id: string): Promise<void> {
     const result = await this.formationRepository.delete(id);
-    if (result.affected === 0) throw new NotFoundException(`Formation #${id} not found`);
+    if (result.affected === 0) throw new NotFoundException(`Formation #${id} introuvable`);
   }
 
   async updateImage(id: string, imageUrl: string): Promise<Formation> {
@@ -116,7 +116,7 @@ export class FormationService {
   async removeSupport(id: string, index: number): Promise<Formation> {
     const formation = await this.findOne(id);
     const supports = formation.supportsFormation || [];
-    if (index < 0 || index >= supports.length) throw new NotFoundException('Support not found');
+    if (index < 0 || index >= supports.length) throw new NotFoundException('Support introuvable');
     supports.splice(index, 1);
     formation.supportsFormation = supports;
     return this.formationRepository.save(formation);

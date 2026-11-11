@@ -1,9 +1,20 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Mail, Lock, Eye, EyeOff, LogIn, Loader2, Moon, Sun, ArrowLeft } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
-import { loginSchema } from "@/lib/validations";
+import { loginSchema, type LoginData } from "@/lib/validations";
+import { useDarkMode } from "@/hooks/use-dark-mode";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 
 export const Route = createFileRoute("/connexion")({
   head: () => ({
@@ -22,16 +33,14 @@ export const Route = createFileRoute("/connexion")({
 
 function ConnexionPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [dark, setDark] = useState(false);
+  const { dark, toggle } = useDarkMode();
   const { login, isAuthenticated, user } = useAuth();
   const router = useRouter();
-  useEffect(() => {
-    setDark(document.documentElement.classList.contains("dark"));
-  }, []);
+
+  const form = useForm<LoginData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: "", password: "" },
+  });
 
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -48,30 +57,17 @@ function ConnexionPage() {
 
   if (isAuthenticated) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrors({});
-    const result = loginSchema.safeParse({ email, password });
-    if (!result.success) {
-      const fieldErrors: Record<string, string> = {};
-      result.error.issues.forEach((issue) => {
-        const field = issue.path[0] as string;
-        if (!fieldErrors[field]) fieldErrors[field] = issue.message;
-      });
-      setErrors(fieldErrors);
-      return;
-    }
-    setLoading(true);
+  const handleSubmit = form.handleSubmit(async (values) => {
     try {
-      await login({ email, password });
+      await login(values);
       toast.success("Connexion réussie");
     } catch (err) {
-      setErrors({ form: err instanceof Error ? err.message : "Identifiants incorrects" });
+      form.setError("root", {
+        message: err instanceof Error ? err.message : "Identifiants incorrects",
+      });
       toast.error("Erreur de connexion");
-    } finally {
-      setLoading(false);
     }
-  };
+  });
 
   return (
     <div className="flex min-h-screen">
@@ -111,12 +107,7 @@ function ConnexionPage() {
         </div>
         <button
           type="button"
-          onClick={() => {
-            const next = !dark;
-            document.documentElement.classList.toggle("dark", next);
-            localStorage.setItem("theme", next ? "dark" : "light");
-            setDark(next);
-          }}
+          onClick={toggle}
           className="absolute right-4 top-4 rounded-md border border-[#2d3e3a]/20 p-2 text-[#2d3e3a] transition-colors hover:bg-white/40 dark:border-sidebar-border dark:text-sidebar-foreground dark:hover:bg-sidebar-accent"
         >
           {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -125,11 +116,7 @@ function ConnexionPage() {
       <div className="flex flex-1 items-center justify-center px-6 py-16">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
-            <img
-              src="/images/image.png"
-              alt="steg_form"
-              className="mx-auto h-12 w-auto md:hidden"
-            />
+            <img src="/images/logo.png" alt="steg_form" className="mx-auto h-12 w-auto md:hidden" />
             <h1 className="mt-4 font-display text-4xl">Connexion</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Accédez à votre espace administrateur
@@ -137,82 +124,94 @@ function ConnexionPage() {
           </div>
 
           <div className="rounded-xl border border-border bg-card p-8">
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label htmlFor="email" className="text-sm font-medium text-foreground">
-                  Identifiant ou Email
-                </label>
-                <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20">
-                  <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <input
-                    id="email"
-                    type="text"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="ex: 2026STG001 ou admin@test.fr"
-                    required
-                    className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                  />
-                </div>
-                {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
-              </div>
+            <Form {...form}>
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Identifiant ou Email</FormLabel>
+                      <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20">
+                        <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <FormControl>
+                          <input
+                            {...field}
+                            type="text"
+                            placeholder="ex: 2026STG001 ou admin@test.fr"
+                            className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                          />
+                        </FormControl>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <div>
-                <label htmlFor="password" className="text-sm font-medium text-foreground">
-                  Mot de passe
-                </label>
-                <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20">
-                  <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="ex : 123456"
-                    required
-                    minLength={6}
-                    title="Minimum 6 caractères"
-                    className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="shrink-0 text-muted-foreground hover:text-foreground"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-                {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
-              </div>
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Mot de passe</FormLabel>
+                      <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20">
+                        <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <FormControl>
+                          <input
+                            {...field}
+                            type={showPassword ? "text" : "password"}
+                            placeholder="ex : 123456"
+                            className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                          />
+                        </FormControl>
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="shrink-0 text-muted-foreground hover:text-foreground"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              {errors.form && <p className="text-sm text-destructive">{errors.form}</p>}
-
-              <div className="flex items-center justify-between text-sm">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="rounded border-border text-primary focus:ring-primary/20"
-                  />
-                  <span className="text-muted-foreground">Se souvenir de moi</span>
-                </label>
-                <Link to="/" className="text-primary hover:underline">
-                  Mot de passe oublié ?
-                </Link>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
-              >
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <LogIn className="h-4 w-4" />
+                {form.formState.errors.root && (
+                  <p className="text-sm text-destructive">{form.formState.errors.root.message}</p>
                 )}
-                {loading ? "Connexion en cours..." : "Se connecter"}
-              </button>
-            </form>
+
+                <div className="flex items-center justify-between text-sm">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      className="rounded border-border text-primary focus:ring-primary/20"
+                    />
+                    <span className="text-muted-foreground">Se souvenir de moi</span>
+                  </label>
+                  <Link to="/" className="text-primary hover:underline">
+                    Mot de passe oublié ?
+                  </Link>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={form.formState.isSubmitting}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+                >
+                  {form.formState.isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <LogIn className="h-4 w-4" />
+                  )}
+                  {form.formState.isSubmitting ? "Connexion en cours..." : "Se connecter"}
+                </button>
+              </form>
+            </Form>
           </div>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">

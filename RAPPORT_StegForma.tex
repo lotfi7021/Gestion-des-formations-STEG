@@ -1,0 +1,897 @@
+\documentclass[12pt,a4paper,oneside,openany]{report}
+
+% ============================================================
+%  RAPPORT DE STAGE D'ÉTÉ — STEG
+%  Projet : StegForma — Plateforme de gestion des formations
+% ============================================================
+\usepackage[french]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,left=2.7cm,right=2.5cm,top=2.5cm,bottom=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{setspace}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{tocbibind}
+\usepackage{enumitem}
+\usepackage{tikz}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{placeins}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{makecell}
+\usepackage{tabularx}
+\usepackage{pifont}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric, shapes.misc, shapes.multipart, calc, fit, backgrounds}
+
+% ---------- VARIABLES A PERSONNALISER ----------
+\newcommand{\etudiant}{Lotfi Makhlouf}
+\newcommand{\ecole}{Université SESAME}
+\newcommand{\filiere}{4\textsuperscript{e} année -- [Filière]}
+\newcommand{\organisme}{Société Tunisienne de l'Électricité et du Gaz (STEG) -- Direction de la Formation et du Développement des Compétences}
+\newcommand{\titreProjet}{StegForma -- Plateforme intelligente de gestion des formations professionnelles}
+\newcommand{\titretete}{StegForma}
+\newcommand{\encadrantPro}{Amel Khlaifi}
+\newcommand{\encadrantAcad}{[Nom de l'encadrant académique -- Université SESAME]}
+\newcommand{\dateDebut}{[date de début]}
+\newcommand{\dateFin}{[date de fin]}
+\newcommand{\anneeUniv}{2025 -- 2026}
+% ------------------------------------------------
+
+\definecolor{stegblue}{RGB}{0,63,114}
+\definecolor{codegray}{RGB}{245,245,245}
+\definecolor{lightblue}{RGB}{220,235,252}
+\definecolor{darkgreen}{RGB}{0,100,0}
+\definecolor{orange}{RGB}{230,126,34}
+\definecolor{redsoft}{RGB}{192,57,43}
+
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries\color{stegblue}\raggedright}
+  {\chaptertitlename\ \thechapter}{20pt}{\Huge\raggedright}
+\titleformat{\section}{\normalfont\Large\bfseries\color{stegblue}\raggedright}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries\raggedright}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalfont\normalsize\bfseries\raggedright}{\thesubsubsection}{1em}{}
+\titlespacing*{\chapter}{0pt}{10pt}{20pt}
+
+\setlength{\headheight}{14.5pt}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancyhead[L]{\small\slshape \titretete}
+\fancyhead[R]{\small\slshape\nouppercase{\leftmark}}
+\fancyfoot[C]{\thepage}
+\fancypagestyle{plain}{%
+  \fancyhf{}%
+  \renewcommand{\headrulewidth}{0pt}%
+  \fancyfoot[C]{\thepage}%
+}
+\renewcommand{\chaptermark}[1]{\markboth{\chaptername\ \thechapter.\ #1}{}}
+\renewcommand{\sectionmark}[1]{\markright{\thesection.\ #1}}
+
+\lstset{
+  backgroundcolor=\color{codegray},
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny,
+  captionpos=b,
+  keywordstyle=\color{stegblue}\bfseries,
+  commentstyle=\color{gray}\itshape,
+  columns=fullflexible,
+  tabsize=2,
+  showstringspaces=false,
+}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=stegblue,
+  citecolor=stegblue,
+  
+  urlcolor=stegblue,
+  pdftitle={Rapport de stage -- StegForma},
+  pdfauthor={\etudiant}
+}
+
+\newcommand{\oui}{\ding{51}}
+
+% ---------- Macro capture d'écran (affiche un cadre si l'image est absente) ----------
+\newcommand{\capture}[3][0.82\textwidth]{%
+  \begin{figure}[H]\centering
+    \IfFileExists{#2}{\includegraphics[width=#1]{#2}}{%
+      \fbox{\parbox[c][6cm][c]{0.85\textwidth}{\centering\itshape
+      [Emplacement de la capture d'écran : \texttt{#2}]\\[2mm]
+      Déposez le fichier image à la racine du projet puis recompilez.}}%
+    }
+    \caption{#3}
+  \end{figure}%
+}
+
+\begin{document}
+
+% ============================================================
+\pagenumbering{roman}
+
+\chapter*{Remerciements}
+\addcontentsline{toc}{chapter}{Remerciements}
+
+Je tiens à exprimer mes sincères remerciements à toute l'équipe de la \organisme\ pour son accueil chaleureux et pour m'avoir offert l'opportunité d'effectuer ce stage d'été dans d'excellentes conditions.
+
+Je remercie tout particulièrement mon encadrant professionnel, \encadrantPro, pour sa disponibilité, ses conseils avisés et le suivi rigoureux qu'il a assuré tout au long de ce stage, ainsi que pour la confiance qu'il m'a accordée en me laissant une réelle autonomie sur la conception et le développement de la plateforme.
+
+Mes remerciements vont également à mon encadrant académique, pour son accompagnement méthodologique et ses retours constructifs sur l'avancement du projet.
+
+Enfin, je remercie l'ensemble du corps professoral de \ecole\ et du programme \filiere\ pour la formation solide qui m'a permis d'aborder ce projet avec les compétences techniques nécessaires.
+
+% ============================================================
+\tableofcontents
+\listoffigures
+\listoftables
+
+% ============================================================
+\chapter*{Introduction générale}
+\addcontentsline{toc}{chapter}{Introduction générale}
+\pagenumbering{arabic}
+
+Dans le cadre de ma formation en \filiere\ à \ecole, j'ai effectué un stage d'été au sein de la \organisme. Ce stage constitue une immersion professionnelle dont l'objectif est de mettre en pratique les compétences acquises en génie logiciel, en conception d'applications web et en intégration de services d'intelligence artificielle.
+
+La STEG, en tant que grand établissement public tunisien, forme chaque année un nombre considérable d'agents : habilitations électriques, sécurité haute tension, maintenance des réseaux, qualité de service, etc. La gestion de ce dispositif de formation -- catalogue, planification des sessions, inscriptions, suivi des présences, évaluations, émission des certificats et signature des documents officiels -- reposait jusqu'ici sur une combinaison de fichiers bureautiques et de traitements manuels, ce qui limitait la traçabilité, la fiabilité des indicateurs et la rapidité de la relation avec les agents.
+
+C'est dans ce contexte que s'inscrit le projet \textbf{StegForma} : une plateforme web complète destinée à centraliser l'ensemble du cycle de vie d'une action de formation, depuis la création du catalogue jusqu'à l'émission des certificats signés électroniquement, en y intégrant un \textbf{assistant intelligent} capable de résumer les supports, de répondre aux questions des participants et d'assister l'administrateur dans ses tâches courantes.
+
+Ma contribution au sein de l'équipe projet a porté principalement sur le \textbf{volet IA} (assistant conversationnel et moteur de recherche documentaire RAG), tout en participant à la conception de l'architecture globale, à la modélisation des données et au développement des interfaces de gestion.
+
+Ce rapport est organisé comme suit :
+\begin{itemize}[label=\textbullet]
+    \item Le \textbf{chapitre 1} présente le contexte du projet, l'organisme d'accueil, la problématique et les objectifs visés ;
+    \item Le \textbf{chapitre 2} décrit le processus méthodologique adopté pour mener à bien le projet ;
+    \item Le \textbf{chapitre 3} détaille l'analyse et la spécification des besoins fonctionnels et non fonctionnels ;
+    \item Le \textbf{chapitre 4} présente la réalisation technique de la solution, incluant le module d'intelligence artificielle ;
+    \item Le rapport se termine par une \textbf{conclusion générale} qui dresse le bilan du stage et présente les perspectives d'évolution du projet.
+\end{itemize}
+
+% ############################################################
+% CHAPITRE 1 — CONTEXTE DU PROJET
+% ############################################################
+\chapter[Contexte du projet]{Contexte du projet et spécification des besoins}
+
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+\hrulefill
+
+Pour assurer le succès du développement de la plateforme StegForma, il est essentiel de bien comprendre le contexte du stage ainsi que le cadre général dans lequel s'inscrit le projet. Ce chapitre présente l'organisme d'accueil, la problématique à l'origine du projet, les objectifs fixés, ainsi qu'un état des lieux de l'existant. Cette étape constitue la base de l'analyse des besoins et de la conception présentées dans les chapitres suivants.
+
+% -----------------------------------------------------------
+\section{Présentation de l'organisme d'accueil}
+
+La Société Tunisienne de l'Électricité et du Gaz (STEG) est un établissement public à caractère industriel et commercial (EPIC), créé en 1962, chargé de la production, du transport et de la distribution de l'électricité et du gaz naturel sur l'ensemble du territoire tunisien.
+
+Ses missions principales sont :
+\begin{itemize}
+    \item \textbf{Production d'électricité} : exploitation de centrales thermiques et intégration progressive de sources d'énergie renouvelable ;
+    \item \textbf{Transport et distribution} : gestion des réseaux haute tension et de distribution jusqu'aux compteurs des abonnés ;
+    \item \textbf{Distribution de gaz} : acheminement du gaz naturel aux usagers industriels, commerciaux et résidentiels ;
+    \item \textbf{Service client} : gestion des contrats d'abonnement, facturation, recouvrement et relation client.
+\end{itemize}
+
+Compte tenu de la technicité de ses métiers et des exigences réglementaires de sécurité, la STEG accorde une place centrale à la formation de son personnel. La \textbf{Direction de la Formation et du Développement des Compétences}, où s'est déroulé le stage, pilote le plan de formation annuel de l'entreprise : elle recense les besoins, planifie les sessions, mobilise les formateurs (internes et externes), organise la logistique, évalue les actions et délivre les attestations officielles. Elle intervient notamment pour les formations d'\textbf{habilitation électrique}, de \textbf{sécurité HTA/BTA}, de \textbf{maintenance des réseaux}, de \textbf{qualité de service} et de \textbf{gestion des risques}.
+
+La direction travaille avec plusieurs profils d'intervenants : les \textbf{administrateurs} de la formation (gestion du catalogue et des sessions), les \textbf{formateurs} (animation et suivi pédagogique) et les \textbf{participants} (agents STEG et stagiaires), répartis entre les différentes directions régionales et districts.
+
+% -----------------------------------------------------------
+\section{Problématique du projet}
+
+\subsection{Constat initial}
+
+Lors de ma prise de fonction au sein de la direction, j'ai observé que la gestion des formations reposait essentiellement sur des fichiers bureautiques (Excel, Word) et des échanges d'e-mails. Cette approche présente plusieurs limites :
+\begin{itemize}
+    \item \textbf{Données dispersées} : le catalogue, les sessions, les listes de présence et les évaluations sont répartis dans des fichiers distincts, sans lien automatisé ;
+    \item \textbf{Suivi manuel des inscriptions et paiements} : la confirmation des paiements et la validation des inscriptions sont effectuées à la main, avec un risque d'erreur ;
+    \item \textbf{Absence de traçabilité} : les documents officiels (conventions, contrats de formateurs, certificats) sont signés sur papier et archivés sans version électronique vérifiable ;
+    \item \textbf{Indicateurs difficiles à consolider} : le calcul des taux de satisfaction, de présence et de réussite nécessite des retraitements manuels longs ;
+    \item \textbf{Accès à l'information limité} : les participants n'ont pas de portail pour consulter leurs formations, leurs supports et leurs certificats.
+\end{itemize}
+
+% -----------------------------------------------------------
+\section{Objectifs du projet}
+
+Le projet StegForma vise deux objectifs principaux : \textbf{centraliser la gestion} de l'ensemble du dispositif de formation et \textbf{intégrer un assistant d'intelligence artificielle} exploitable par les trois profils d'utilisateurs.
+
+Les objectifs fonctionnels sont les suivants :
+\begin{itemize}
+    \item gérer le \textbf{catalogue des formations} (CRUD, types intra/inter/catalogue/cycle, supports et image de couverture) ;
+    \item planifier les \textbf{sessions} (dates, lieu, salle, formateurs, participants, capacités) et suivre leur état ;
+    \item gérer les \textbf{inscriptions et les paiements} (en attente, payé, refusé) avec validation par l'administrateur ;
+    \item enregistrer les \textbf{présences} (statut formation et cantine, heures, justificatifs) et produire les listes d'émargement ;
+    \item collecter les \textbf{évaluations} selon une grille multi-critères et calculer les \textbf{KPI} (satisfaction, qualité, participation, réussite) ;
+    \item générer les \textbf{certificats au format PDF} avec numéro unique, QR code et \textbf{signature électronique} ;
+    \item gérer les \textbf{documents signés} (convention de formation, contrat de formateur, certificat) avec signatures multi-rôles ;
+    \item diffuser des \textbf{notifications} in-app et par e-mail ;
+    \item fournir un \textbf{tableau de bord} et un module de recherche globale.
+\end{itemize}
+
+Les objectifs liés à l'intelligence artificielle sont :
+\begin{itemize}
+    \item un \textbf{assistant conversationnel} (chatbot) capable de répondre aux questions et, pour l'administrateur, d'exécuter des actions (création, suppression, validation) en langage naturel ;
+    \item un \textbf{moteur documentaire RAG} (Retrieval-Augmented Generation) pour résumer le contenu réel des supports de formation et répondre aux questions des participants avec \textbf{citations et niveau de confiance} ;
+    \item la génération assistée du \textbf{texte des certificats} et des \textbf{comptes-rendus de session}.
+\end{itemize}
+
+% -----------------------------------------------------------
+\section{Étude de l'existant}
+
+La première étape du projet a consisté à inventorier les pratiques et les données existantes au sein de la direction.
+
+L'essentiel de la gestion repose sur :
+\begin{itemize}
+    \item un \textbf{fichier Excel} recensant le personnel et les besoins de formation, mis à jour manuellement ;
+    \item des \textbf{documents Word} pour les programmes et les conventions ;
+    \item des \textbf{listes de présence papier} signées en fin de session ;
+    \item des \textbf{fichiers PDF} de certificats produits au cas par cas.
+\end{itemize}
+
+L'analyse de cet existant révèle plusieurs limites structurelles : absence de base de données centralisée, absence de lien entre les inscrits et les sessions, impossibilité de suivre un paiement en temps réel, aucune traçabilité électronique des signatures, et difficulté à consolider les indicateurs de pilotage. Ces constats justifient pleinement la mise en place d'une solution intégrée comme StegForma.
+
+% -----------------------------------------------------------
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion du chapitre 1}
+\hrulefill
+
+Ce premier chapitre a permis de poser les bases du projet en présentant l'organisme d'accueil, la problématique identifiée et les objectifs visés. L'étude de l'existant a mis en évidence les limites des outils actuels et la nécessité de développer une solution intégrée. Le chapitre suivant est consacré au processus méthodologique adopté pour mener à bien ce projet.
+
+% ############################################################
+% CHAPITRE 2 — PROCESSUS MÉTHODOLOGIQUE
+% ############################################################
+\chapter{Processus méthodologique}
+\setstretch{1.3}
+
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+
+Pour la réussite du projet StegForma, nous avons adopté la méthodologie agile \textbf{Scrum}, qui organise le travail en itérations courtes (sprints) et assure un suivi continu du développement.
+
+\section{Méthodologie adoptée : Scrum}
+
+Le choix d'une méthodologie de gestion de projet est essentiel pour structurer le développement et faciliter la communication entre les parties prenantes. Nous avons opté pour \textbf{Scrum}, une méthode agile reposant sur un développement itératif et incrémental, qui favorise l'implication du client et l'adaptation aux évolutions des besoins.
+
+La méthode repose sur trois rôles principaux :
+\begin{itemize}
+\item \textbf{Product Owner} : représente le client (la Direction de la Formation) et définit les besoins du produit ;
+\item \textbf{Scrum Master} : facilite le travail de l'équipe et veille au respect de la méthode ;
+\item \textbf{Équipe de développement} : réalise les fonctionnalités prévues durant chaque sprint.
+\end{itemize}
+
+Plusieurs artéfacts servent à organiser le travail : le \textbf{Product Backlog} (liste des fonctionnalités), le \textbf{Sprint Backlog} (tâches sélectionnées pour un sprint) et le \textbf{Sprint Burn-Down Chart} (graphique d'avancement). La figure ci-dessous illustre le fonctionnement général de la méthodologie Scrum.
+
+\capture[8cm]{Scrum.png}{Le processus de la méthodologie Scrum}
+
+\section{Gestion du projet avec Scrum}
+
+Le projet a été organisé à partir d'un \textit{Product Backlog} défini avec le Product Owner, puis réparti en sprints afin d'intégrer progressivement les retours du client. Le tableau~\ref{tab:backlog} présente un extrait du backlog, regroupant les principales user stories par sprint et par priorité.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|c|p{3.4cm}|p{8.3cm}|c|}
+\hline
+\textbf{ID} & \textbf{Sprint} & \textbf{User story} & \textbf{Priorité} \\
+\hline
+1 & Auth. et comptes & S'inscrire, se connecter (JWT), consulter son profil, faire approuver les comptes par l'administrateur. & Élevé \\
+\hline
+2 & Catalogue & Consulter, créer, modifier et supprimer une formation ; téléverser l'image et les supports ; gérer les types. & Élevé \\
+\hline
+3 & Sessions & Planifier une session (dates, lieu, salle, formateurs, participants) et gérer ses documents. & Élevé \\
+\hline
+4 & Inscriptions & S'inscrire à une session, suivre le statut du paiement, valider ou refuser un paiement. & Élevé \\
+\hline
+5 & Présences & Pointer les participants par date (formation et cantine), saisir les heures et les justificatifs. & Moyen \\
+\hline
+6 & Évaluations et KPI & Remplir la grille d'évaluation et visualiser les indicateurs (cabinet, formateur, satisfaction). & Moyen \\
+\hline
+7 & Certificats & Générer les certificats PDF avec numéro, QR code et signature électronique. & Moyen \\
+\hline
+8 & Documents signés & Produire et faire signer (multi-rôles) les conventions et contrats de formateurs. & Moyen \\
+\hline
+9 & Notifications & Recevoir des notifications in-app et par e-mail sur les événements clés. & Moyen \\
+\hline
+10 & Assistant IA & Chatbot d'action et assistant RAG (résumés et questions sur les supports). & Moyen \\
+\hline
+\end{tabular}
+\caption{Backlog réduit du projet StegForma}
+\label{tab:backlog}
+\end{table}
+
+\section{Environnement de travail}
+
+L'environnement matériel utilisé est un PC portable (processeur Core i7, 16 Go de RAM, Windows 11). Sur le plan logiciel, la plateforme a été développée avec le stack suivant :
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|p{4.4cm}|p{8.6cm}|}
+\hline
+\textbf{Outil / Technologie} & \textbf{Rôle} \\
+\hline
+Visual Studio Code & Éditeur multi-langages (TypeScript, JavaScript, CSS, SQL) \\
+\hline
+React 19 + TanStack Start & Frontend : rendu côté serveur, routage par fichiers et requêtes typées (TanStack Router \& Query) \\
+\hline
+Tailwind CSS v4 + shadcn/ui & Système de design, composants d'interface accessibles \\
+\hline
+NestJS + TypeORM & Backend : API REST modulaire, entités et migrations \\
+\hline
+MySQL & Base de données relationnelle \\
+\hline
+JWT + bcrypt & Authentification (jeton d'accès / rafraîchissement) et hachage des mots de passe \\
+\hline
+PDFKit + pdf-parse & Génération des certificats PDF et extraction du texte des supports pour le RAG \\
+\hline
+@xenova/transformers & Embeddings locaux (ONNX) pour la recherche documentaire \\
+\hline
+Ollama (Gemma 3 4B) / Groq & Modèle de langage pour l'assistant (local par défaut, cloud en option) \\
+\hline
+k6 & Tests de charge de l'API \\
+\hline
+\end{tabular}
+\caption{Environnement logiciel}
+\end{table}
+
+% -----------------------------------------------------------
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion du chapitre 2}
+\hrulefill
+
+Le processus méthodologique basé sur l'approche agile Scrum a permis de structurer efficacement le développement de la plateforme. La gestion par sprints, le backlog et l'environnement technique constituent le socle de la réalisation. Le chapitre suivant détaille l'analyse et la spécification des besoins.
+
+% ############################################################
+% CHAPITRE 3 — ANALYSE ET SPÉCIFICATION DES BESOINS
+% ############################################################
+\chapter[Analyse et spécification des besoins]{Analyse et spécification des besoins}
+
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+\hrulefill
+
+Ce chapitre est consacré à l'analyse détaillée des besoins de la plateforme StegForma. Il identifie les différents acteurs du système, modélise les besoins fonctionnels et non fonctionnels à l'aide de diagrammes UML, et formalise les spécifications qui guideront la phase de réalisation.
+
+% -----------------------------------------------------------
+\section{Identification des acteurs}
+
+L'analyse des besoins a permis d'identifier trois profils d'utilisateurs, chacun disposant de droits d'accès et de fonctionnalités spécifiques, conformément au contrôle d'accès basé sur les rôles (RBAC) implémenté côté serveur.
+
+\subsection{Description des acteurs}
+
+\begin{table}[H]
+\centering
+\caption{Description des acteurs du système}
+\begin{tabular}{|p{2.6cm}|p{3.6cm}|p{6.2cm}|}
+\hline
+\textbf{Acteur} & \textbf{Profil} & \textbf{Responsabilités} \\
+\hline
+Administrateur & Responsable de la formation & Gère le catalogue, les sessions, les comptes, les inscriptions et les paiements ; configure les évaluations et les KPI ; génère les certificats et documents ; utilise l'assistant IA d'action. \\
+\hline
+Formateur & Intervenant pédagogique & Consulte ses sessions, assure le suivi pédagogique, signe les contrats, évalue et complète les supports de session. \\
+\hline
+Participant & Agent STEG ou stagiaire & Consulte le catalogue, s'inscrit et suit ses paiements, consulte ses formations et certificats, remplit l'évaluation et interagit avec l'assistant IA. \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Diagramme de cas d'utilisation}
+
+Le diagramme de la Figure~\ref{fig:usecase} illustre les principales interactions de chaque acteur avec la plateforme.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[font=\small]
+% Acteurs
+\node (part) at (0,0) {\begin{tabular}{c}\textbf{Participant}\\ \small (bonhomme)\end{tabular}};
+\node (form) at (0,-4) {\begin{tabular}{c}\textbf{Formateur}\\ \small (bonhomme)\end{tabular}};
+\node (adm) at (0,-8) {\begin{tabular}{c}\textbf{Administrateur}\\ \small (bonhomme)\end{tabular}};
+% Frontière système
+\draw[stegblue,thick,rounded corners] (2.4,1.2) rectangle (12,-9.2);
+\node[stegblue] at (7.2,0.85) {\textbf{Plateforme StegForma}};
+% Cas d'utilisation
+\node[draw,ellipse,minimum width=3.2cm] (uc1) at (5,-0.4) {Consulter le catalogue};
+\node[draw,ellipse,minimum width=3.2cm] (uc2) at (9.4,-0.4) {S'inscrire / Payer};
+\node[draw,ellipse,minimum width=3.2cm] (uc3) at (5,-2.3) {Consulter ses certificats};
+\node[draw,ellipse,minimum width=3.2cm] (uc4) at (9.4,-2.3) {Utiliser l'assistant IA};
+\node[draw,ellipse,minimum width=3.2cm] (uc5) at (5,-4.4) {Suivre ses sessions};
+\node[draw,ellipse,minimum width=3.2cm] (uc6) at (9.4,-4.4) {Signer les documents};
+\node[draw,ellipse,minimum width=3.2cm,align=center] (uc7) at (5,-6.6) {Gérer formations \\ et sessions};
+\node[draw,ellipse,minimum width=3.2cm] (uc8) at (9.4,-6.6) {Valider paiements};
+\node[draw,ellipse,minimum width=3.2cm,align=center] (uc9) at (7.2,-8.6) {Générer certificats \\ et documents};
+% Liens
+\draw (part)--(uc1); \draw (part)--(uc2); \draw (part)--(uc3);
+\draw (form)--(uc5); \draw (form)--(uc4); \draw (form)--(uc6);
+\draw (adm)--(uc7); \draw (adm)--(uc8); \draw (adm)--(uc9); \draw (adm)--(uc4);
+\end{tikzpicture}
+\caption{Diagramme de cas d'utilisation de la plateforme StegForma}
+\label{fig:usecase}
+\end{figure}
+
+% -----------------------------------------------------------
+\section{Besoins fonctionnels}
+
+Les besoins fonctionnels décrivent l'ensemble des services et fonctionnalités que la plateforme doit offrir. Ils sont regroupés par domaine dans le tableau~\ref{tab:bf}.
+
+\begin{table}[H]
+\centering
+\caption{Besoins fonctionnels de la plateforme}
+\begin{tabular}{|c|p{2.6cm}|p{10cm}|}
+\hline
+\textbf{Réf.} & \textbf{Domaine} & \textbf{Besoins} \\
+\hline
+AF-01 & Authentification & Connexion sécurisée (e-mail / nom d'utilisateur / identifiant STEG), jeton JWT et jeton de rafraîchissement, inscription des nouveaux comptes soumise à approbation. \\
+\hline
+AF-02 & Formation & CRUD des formations, gestion des types (intra, inter, catalogue, cycle), image de couverture et supports (fichiers), clonage de formation. \\
+\hline
+AF-03 & Session & Planification (dates, lieu, salle, heures), affectation des formateurs et des participants, documents de session, clôture de session. \\
+\hline
+AF-04 & Inscription & Inscription d'un participant à une session, suivi du statut de paiement (en attente, payé, refusé), validation/refus par l'administrateur. \\
+\hline
+AF-05 & Présence & Pointage par date, statut formation et statut cantine, heures d'arrivée et de départ, justification et justificatif. \\
+\hline
+AF-06 & Évaluation & Grille multi-critères (contenu, pédagogie, supports, organisation, satisfaction) et verrouillage anti-doublon. \\
+\hline
+AF-07 & KPI & Calcul des taux cabinet, formateur, évaluation, satisfaction, participation et réussite, avec seuils d'interprétation. \\
+\hline
+AF-08 & Certificat & Génération de certificats PDF A4 paysage (numéro unique, QR code), signature électronique, envoi et téléchargement. \\
+\hline
+AF-09 & Documents signés & Génération et signature multi-rôles de la convention de formation et du contrat de formateur. \\
+\hline
+AF-10 & Notification & Notifications in-app et e-mails transactionnels (inscription, approbation, certificat disponible, désactivation). \\
+\hline
+AF-11 & Assistant IA & Chatbot de questions/réponses par rôle, assistant d'action pour l'administrateur, résumés de formation (RAG) et de session, texte de certificat. \\
+\hline
+AF-12 & Recherche & Recherche globale multi-entités accessible au clavier (palette de commandes). \\
+\hline
+\end{tabular}
+\label{tab:bf}
+\end{table}
+
+% -----------------------------------------------------------
+\section{Besoins non fonctionnels}
+
+Les besoins non fonctionnels définissent les qualités transversales que le système doit respecter.
+
+\begin{table}[H]
+\centering
+\caption{Besoins non fonctionnels de la plateforme}
+\begin{tabular}{|p{2.6cm}|p{4.2cm}|p{6.2cm}|}
+\hline
+\textbf{Catégorie} & \textbf{Exigence} & \textbf{Description} \\
+\hline
+Sécurité & Authentification JWT & Mots de passe hachés (bcrypt, 10 tours) ; jeton d'accès de 15~minutes et jeton de rafraîchissement de 7~jours ; routes protégées par rôle (guards) ; validation stricte des entrées (ValidationPipe avec \texttt{whitelist}). \\
+\hline
+Performance & Temps de réponse & Réponse de l'API en moins de 500~ms pour les requêtes simples ; génération d'un certificat PDF en quelques secondes. \\
+\hline
+Maintenabilité & Code typé et documenté & TypeScript de bout en bout (frontend et backend) pour faciliter la maintenance ; backend organisé en modules NestJS indépendants ; journalisation des appels à l'IA (durée, modèle, jetons). \\
+\hline
+\end{tabular}
+\end{table}
+
+% -----------------------------------------------------------
+\section{Modélisation UML}
+
+\subsection{Diagramme de séquence -- Authentification}
+
+La Figure~\ref{fig:seqauth} illustre le flux d'authentification, du formulaire de connexion jusqu'à l'accès aux ressources protégées.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[font=\scriptsize,xscale=1.0,yscale=0.9]
+\node (c) at (0,0.5) {\textbf{Participant}}; \draw[dashed] (0,0)--(0,-7);
+\node (f) at (3.2,0.5) {\textbf{Frontend}}; \draw[dashed] (3.2,0)--(3.2,-7);
+\node (a) at (6.6,0.5) {\textbf{API NestJS}}; \draw[dashed] (6.6,0)--(6.6,-7);
+\node (j) at (10,0.5) {\textbf{JWT}}; \draw[dashed] (10,0)--(10,-7);
+\draw[-{Latex}] (0,-0.6)--(3.2,-0.6) node[midway,above]{login, mdp};
+\draw[-{Latex}] (3.2,-1.4)--(6.6,-1.4) node[midway,above]{POST /api/auth/login};
+\draw[-{Latex}] (6.6,-2.2)--(6.6,-2.6) node[midway,right]{bcrypt.compare};
+\draw[-{Latex}] (6.6,-3.2)--(10,-3.2) node[midway,above]{sign(access 15 min)};
+\draw[-{Latex}] (10,-3.8)--(6.6,-3.8) node[midway,above]{access\_token};
+\draw[-{Latex}] (6.6,-4.4)--(6.6,-4.8) node[midway,right,align=left]{hash(refresh)\\+ lastLogin};
+\draw[-{Latex}] (6.6,-5.4)--(3.2,-5.4) node[midway,above]{tokens + profil};
+\draw[-{Latex}] (3.2,-6.2)--(0,-6.2) node[midway,above]{redirection selon rôle};
+\end{tikzpicture}
+\caption{Diagramme de séquence -- processus d'authentification}
+\label{fig:seqauth}
+\end{figure}
+
+\subsection{Diagramme de séquence -- Assistant IA (RAG)}
+
+La Figure~\ref{fig:seqrag} décrit le calcul de la réponse de l'assistant documentaire lorsqu'un participant pose une question sur une formation.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[font=\scriptsize,xscale=1.0,yscale=0.9]
+\node (p) at (0,0.5) {\textbf{Participant}}; \draw[dashed] (0,0)--(0,-7);
+\node (a) at (3.6,0.5) {\textbf{API / AiService}}; \draw[dashed] (3.6,0)--(3.6,-7);
+\node (r) at (7.2,0.5) {\textbf{RAG + Embeddings}}; \draw[dashed] (7.2,0)--(7.2,-7);
+\node (l) at (10.6,0.5) {\textbf{LLM}}; \draw[dashed] (10.6,0)--(10.6,-7);
+\draw[-{Latex}] (0,-0.6)--(3.6,-0.6) node[midway,above]{question};
+\draw[-{Latex}] (3.6,-1.4)--(7.2,-1.4) node[midway,above]{buildContext(docs, question)};
+\draw[-{Latex}] (7.2,-2.2)--(7.2,-2.6) node[midway,right,align=left]{chunks +\\embedding requête};
+\draw[-{Latex}] (7.2,-3.2)--(3.6,-3.2) node[midway,above]{top-k chunks + sources};
+\draw[-{Latex}] (3.6,-4.0)--(10.6,-4.0) node[midway,above]{prompt (contexte + JSON)};
+\draw[-{Latex}] (10.6,-4.8)--(3.6,-4.8) node[midway,above]{réponse + sources + confiance};
+\draw[-{Latex}] (3.6,-5.8)--(0,-5.8) node[midway,above]{réponse citée};
+\end{tikzpicture}
+\caption{Diagramme de séquence -- assistant IA documentaire (RAG)}
+\label{fig:seqrag}
+\end{figure}
+
+% -----------------------------------------------------------
+\section{Spécification des interfaces}
+
+\subsection{Maquettes principales}
+
+Les principales interfaces de la plateforme ont été conçues sous forme de maquettes avant le développement :
+\begin{itemize}
+    \item \textbf{Page d'accueil et catalogue} : vitrine des formations avec recherche, filtres et catégories ;
+    \item \textbf{Page de connexion} : formulaire centré avec e-mail / identifiant STEG et mot de passe ;
+    \item \textbf{Portail participant} : espace personnel (mes formations, mes certificats, calendrier, profil) ;
+    \item \textbf{Portail formateur} : tableau de bord, sessions à animer, calendrier et signature de documents ;
+    \item \textbf{Console d'administration} : tableau de bord, formations, sessions, participants, formateurs, paiements, évaluations, KPI, documents, approbations et paramètres ;
+    \item \textbf{Assistant IA} : fenêtre de conversation et assistant contextuel intégré à la fiche de formation.
+\end{itemize}
+
+\subsection{Spécifications des endpoints API}
+
+L'API backend, préfixée par \texttt{/api}, expose les principaux endpoints présentés dans le tableau~\ref{tab:api}.
+
+\begin{longtable}{|l|l|p{5.4cm}|p{2.2cm}|}
+\hline
+\textbf{Méthode} & \textbf{Route} & \textbf{Description} & \textbf{Rôle} \\
+\hline
+\endhead
+POST & /api/auth/login & Authentification (e-mail / identifiant) & Public \\
+\hline
+POST & /api/auth/register & Demande de création de compte & Public \\
+\hline
+POST & /api/auth/refresh & Renouvellement du jeton d'accès & Public \\
+\hline
+GET & /api/auth/profile & Profil de l'utilisateur connecté & Tous \\
+\hline
+PATCH & /api/auth/approve/:id & Approuver un compte en attente & Admin \\
+\hline
+GET & /api/formations & Catalogue des formations & Public \\
+\hline
+POST & /api/formations & Créer une formation & Admin \\
+\hline
+PATCH & /api/formations/:id & Modifier une formation & Admin \\
+\hline
+POST & /api/formations/:id/upload & Téléverser un support & Admin \\
+\hline
+GET & /api/formations/:id/ai-summary & Résumé IA (RAG) de la formation & Participant \\
+\hline
+POST & /api/formations/:id/ai-ask & Question IA sur la formation & Participant \\
+\hline
+GET & /api/sessions & Liste des sessions & Authentifié \\
+\hline
+POST & /api/sessions & Créer une session & Admin \\
+\hline
+POST & /api/sessions/:id/enroll & Inscrire un participant & Admin \\
+\hline
+POST & /api/sessions/:id/summary & Résumé IA de la session & Admin \\
+\hline
+POST & /api/inscriptions/admin & Créer une inscription & Admin \\
+\hline
+PATCH & /api/inscriptions/:id/confirm-payment & Confirmer un paiement & Admin \\
+\hline
+DELETE & /api/inscriptions/:id/reject & Refuser un paiement & Admin \\
+\hline
+GET & /api/presences/session/:sessionId & Liste de présence d'une session & Admin / Formateur \\
+\hline
+POST & /api/evaluations & Soumettre une évaluation & Participant \\
+\hline
+POST & /api/certificates/generate/:sessionId & Générer les certificats d'une session & Admin \\
+\hline
+POST & /api/certificates/:id/generate-text & Générer le texte IA du certificat & Admin \\
+\hline
+POST & /api/signatures & Enregistrer une signature & Tous \\
+\hline
+POST & /api/signatures/generate-convention/:sessionId/:participantId & Générer une convention & Admin \\
+\hline
+POST & /api/sessions/:sessionId/documents/upload & Téléverser un document de session & Admin / Formateur \\
+\hline
+POST & /api/chatbot/ask & Interroger l'assistant conversationnel & Tous \\
+\hline
+\caption{Principaux endpoints de l'API}
+\label{tab:api}
+\end{longtable}
+
+% -----------------------------------------------------------
+\enlargethispage{2cm}
+
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion du chapitre 3}
+\hrulefill
+
+L'analyse et la spécification des besoins ont permis de formaliser l'ensemble des exigences fonctionnelles et non fonctionnelles de la plateforme StegForma. Les diagrammes UML fournissent une vision claire des interactions et des structures de données. Le chapitre suivant présente la réalisation concrète de la solution.
+
+% ############################################################
+% CHAPITRE 4 — RÉALISATION
+% ############################################################
+\chapter{Réalisation}
+
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+
+Dans ce chapitre, nous présentons la réalisation concrète de la plateforme StegForma à travers les différents sprints de développement. Chaque étape est illustrée par une capture d'écran des interfaces réalisées. Nous décrivons également, de manière détaillée, le fonctionnement du module d'intelligence artificielle (assistant conversationnel, moteur RAG, génération de certificats) et les traitements métier associés.
+
+\section{Architecture de la solution}
+
+La plateforme adopte une architecture trois tiers. Le navigateur accède à l'application TanStack Start (rendu côté serveur), qui consomme une API REST NestJS. Celle-ci s'appuie sur une base MySQL et communique avec des services externes : un serveur SMTP pour les e-mails et un service d'IA (modèle local Ollama ou API Groq). La Figure~\ref{fig:archi} illustre cette architecture.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[font=\small,node distance=1.1cm and 1.6cm,every node/.style={align=center}]
+\node[draw,rounded corners,fill=lightblue,minimum width=3cm,minimum height=1cm] (cl) {Client\\ (navigateur)};
+\node[draw,rounded corners,fill=lightblue,right=of cl,minimum width=3.4cm,minimum height=1cm] (fr) {Frontend\\ TanStack Start + React 19};
+\node[draw,rounded corners,fill=lightblue,right=of fr,minimum width=3.2cm,minimum height=1cm] (api) {API REST\\ NestJS (:3000)};
+\node[draw,rounded corners,fill=codegray,below=of api,minimum width=3.2cm] (db) {MySQL};
+\node[draw,rounded corners,fill=codegray,left=of db,minimum width=3.2cm] (smtp) {SMTP\\(e-mail)};
+\node[draw,rounded corners,fill=codegray,left=of smtp,minimum width=3.4cm] (ia) {IA : Ollama / Groq\\ + embeddings};
+\draw[-{Latex}] (cl)--(fr); \draw[-{Latex}] (fr)--(api);
+\draw[-{Latex}] (api)--(db); \draw[-{Latex}] (api)--(smtp); \draw[-{Latex}] (api)--(ia);
+\end{tikzpicture}
+\caption{Architecture générale de la solution StegForma}
+\label{fig:archi}
+\end{figure}
+
+\section{Réalisation des sprints}
+
+\subsection{Sprint 1 -- Authentification et gestion des comptes}
+
+La première brique développée est l'authentification. L'utilisateur peut se connecter avec son \textbf{e-mail}, son \textbf{nom d'utilisateur} ou son \textbf{identifiant STEG}. Le backend vérifie le mot de passe haché (bcrypt), délivre un \textbf{jeton d'accès} de courte durée et un \textbf{jeton de rafraîchissement} persisté sous forme hachée, puis journalise la date de dernière connexion.
+
+Les nouveaux comptes (formateurs, participants) sont créés en \textbf{attente d'approbation} : un administrateur les valide ou les rejette depuis l'écran des approbations, et un e-mail de bienvenue est envoyé automatiquement.
+
+\capture{page auth.png}{Interface d'authentification}
+
+Après connexion, chaque profil est redirigé vers son espace : console d'administration, tableau de bord formateur ou portail participant.
+
+\subsection{Sprint 2 -- Gestion du catalogue de formations}
+
+L'administrateur gère l'ensemble du catalogue. Chaque formation possède un titre, une description, des objectifs, des prérequis, une catégorie, un tarif, une durée (heures et jours), une capacité maximale, une image de couverture et des supports pédagogiques. Quatre \textbf{types} de formation sont distingués : \emph{intra} (une seule entreprise), \emph{inter} (plusieurs entreprises), \emph{catalogue} (formations publiques) et \emph{cycle} (formation longue).
+
+\capture{liste formations.png}{Liste des formations (catalogue)}
+
+Pour créer ou modifier une formation, l'administrateur remplit un formulaire complet et peut téléverser une image et des supports.
+
+\capture{ajout formation.png}{Formulaire de création / modification d'une formation}
+
+\subsection{Sprint 3 -- Planification des sessions}
+
+Une session concrétise une formation à une date donnée. Elle précise les dates de début et de fin, les heures, le lieu, la salle, la capacité et les documents associés (CV du formateur, facture, bon de commande, contrat). L'administrateur y affecte un ou plusieurs \textbf{formateurs} et \textbf{participants} (relations plusieurs-à-plusieurs). Une session peut ensuite être clôturée, ce qui débloque la génération des certificats.
+
+\capture{liste sessions.png}{Liste et planification des sessions}
+
+\subsection{Sprint 4 -- Inscriptions et paiements}
+
+L'inscription relie un participant à une session, avec un montant et un \textbf{statut de paiement} : \emph{en attente}, \emph{payé} ou \emph{refusé}. L'administrateur crée les inscriptions et confirme ou refuse les paiements ; le participant suit l'état de ses paiements depuis son espace.
+
+\capture{paiements.png}{Gestion des inscriptions et des paiements}
+
+\subsection{Sprint 5 -- Suivi des présences}
+
+Pour chaque session et chaque date, l'administrateur ou le formateur pointe les participants. Une présence porte deux statuts indépendants -- \textbf{formation} et \textbf{cantine} -- ainsi que les heures d'arrivée et de départ et, le cas échéant, un justificatif d'absence. Ces données alimentent les listes d'émargement et le taux de présence.
+
+\capture{presences.png}{Feuille de présence d'une session}
+
+\subsection{Sprint 6 -- Évaluations et indicateurs (KPI)}
+
+À l'issue d'une session, chaque participant complète une \textbf{grille d'évaluation}. Le formulaire distingue des critères « cabinet » (objectif et clarté, contenu, utilité, rythme, confort de la salle, équipements, supports) et des critères « formateur » (maîtrise du sujet, clarté des explications, animation, capacité de réponse), notés de 1 à 4, complétés par une note de satisfaction globale, des points forts, des points à améliorer et une recommandation. Un contrôle serveur empêche qu'un même participant évalue deux fois la même session.
+
+Les évaluations alimentent un module de \textbf{KPI} qui calcule et restitue :
+\begin{itemize}
+    \item le \textbf{taux cabinet} : moyenne des critères cabinet, convertie en pourcentage ;
+    \item le \textbf{taux formateur} : moyenne des critères formateur, convertie en pourcentage ;
+    \item le \textbf{taux d'évaluation} : moyenne des deux taux précédents ;
+    \item le \textbf{taux de satisfaction} : proportion d'évaluations dont la note globale est supérieure ou égale à 4 ;
+    \item le \textbf{taux de participation} : inscrits rapportés à la capacité maximale.
+\end{itemize}
+
+Ces taux sont interprétés selon des seuils : \textbf{70~\% et plus} (performant / retenu), \textbf{40 à 69~\%} (à améliorer) et \textbf{moins de 40~\%} (non retenu).
+
+\capture{kpi.png}{Tableau de bord des KPI}
+
+\subsection{Sprint 7 -- Certificats avec signature électronique}
+
+Le module de certification génère, pour chaque participant d'une session terminée, un \textbf{certificat PDF au format A4 paysage}. Le document est produit avec PDFKit selon une mise en page soignée (cadres dorés, en-tête « STEG FORMATION », nom du participant, intitulé de la formation, dates, lieu et formateurs) et intègre :
+\begin{itemize}
+    \item un \textbf{numéro de certificat unique} ;
+    \item un \textbf{code QR} d'authentification ;
+    \item les \textbf{signatures électroniques} du participant et du responsable.
+\end{itemize}
+Un enregistrement est ajouté à la table des documents signés et une notification informe le participant que son certificat est disponible en téléchargement.
+
+\capture{certificat.png}{Certificat PDF généré}
+
+\subsection{Sprint 8 -- Documents signés et signature multi-rôles}
+
+Au-delà des certificats, la plateforme produit la \textbf{convention de formation} et le \textbf{contrat de formateur}. Chaque document peut être signé par plusieurs acteurs (participant, formateur, administrateur) ; l'état de signature est conservé séparément pour chaque rôle, avec horodatage et référence de la signature utilisée.
+
+\capture{documents.png}{Gestion des documents signés}
+
+Pour recueillir une signature, l'utilisateur dessine sa signature dans une zone dédiée (composant de signature tactile), qui est enregistrée dans la table des signatures.
+
+\capture{signature.png}{Saisie d'une signature électronique}
+
+\subsection{Sprint 9 -- Notifications et e-mails}
+
+La plateforme émet des \textbf{notifications in-app} (nouvel inscrit, nouveau formateur, paiement confirmé, certificat disponible, document signé) et des \textbf{e-mails transactionnels} via SMTP (inscription reçue, approbation de compte, identifiants, désactivation). En l'absence de configuration SMTP, les e-mails sont simplement journalisés, ce qui permet de développer sans dépendance externe.
+
+\subsection{Sprint 10 -- Assistant d'intelligence artificielle}
+
+Le dernier sprint, sur lequel j'ai principalement travaillé, regroupe l'ensemble des fonctionnalités d'intelligence artificielle, détaillées à la section suivante.
+
+\section{Module d'intelligence artificielle}
+
+Le module d'intelligence artificielle de StegForma poursuit deux buts : \textbf{assister les utilisateurs} (réponses, résumés) et \textbf{exploiter le contenu réel des supports}. Il se compose de trois briques : l'assistant conversationnel, le moteur documentaire RAG et la génération assistée de textes.
+
+\subsection{Assistant conversationnel (chatbot à actions)}
+
+Le chatbot s'adapte au rôle de l'utilisateur. Pour un \textbf{participant} ou un \textbf{formateur}, il répond aux questions en s'appuyant sur un contexte extrait de la base (formations, sessions, inscriptions personnelles, évaluations). Pour un \textbf{administrateur}, il peut en outre \textbf{exécuter des actions} en langage naturel grâce à une étape de détection d'intention :
+
+\begin{itemize}
+    \item création d'une formation, d'une session, d'un participant ou d'un formateur ;
+    \item validation ou refus d'un paiement ;
+    \item suppression d'une formation, d'une session, d'un participant ou d'un formateur ;
+    \item désactivation d'un compte utilisateur.
+\end{itemize}
+
+La détection d'intention combine des expressions régulières et un appel au modèle de langage qui renvoie un objet JSON décrivant l'action et ses paramètres ; le service exécute ensuite l'opération correspondante et confirme le résultat à l'administrateur.
+
+\capture{chatbot.png}{Assistant conversationnel}
+
+\subsection{Moteur documentaire RAG}
+
+Le moteur RAG (Retrieval-Augmented Generation) permet de \textbf{résumer le contenu réel} des supports partagés dans une formation et de \textbf{répondre aux questions} des participants à partir de ces documents. Le principe général est illustré par la Figure~\ref{fig:rag} : les documents PDF sont découpés en fragments, vectorisés, puis les fragments les plus proches de la question sont injectés dans le prompt du modèle, qui produit une réponse sourcée.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[font=\small,node distance=0.7cm and 0.9cm,
+  box/.style={draw,rounded corners,fill=lightblue,minimum height=0.9cm,align=center,inner sep=4pt}]
+\node[box] (pdf) {PDF de session};
+\node[box,right=of pdf] (chunk) {Découpage en fragments\\(1200 car., chevauchement 150)};
+\node[box,right=of chunk] (emb) {Vectorisation\\(E5 multilingue)};
+\node[box,below=of emb] (sim) {Similarité cosinus\\(top-k, seuil 0,3)};
+\node[box,left=of sim] (prompt) {Prompt\\ (contexte + consignes)};
+\node[box,left=of prompt] (llm) {Modèle\\ (Ollama / Groq)};
+\node[box,below=of llm] (rep) {Réponse avec\\ citations + confiance};
+\draw[-{Latex}] (pdf)--(chunk); \draw[-{Latex}] (chunk)--(emb); \draw[-{Latex}] (emb)--(sim);
+\draw[-{Latex}] (sim)--(prompt); \draw[-{Latex}] (prompt)--(llm); \draw[-{Latex}] (llm)--(rep);
+\end{tikzpicture}
+\caption{Pipeline du moteur RAG de StegForma}
+\label{fig:rag}
+\end{figure}
+
+Les choix techniques du moteur RAG sont les suivants :
+\begin{itemize}
+    \item \textbf{Extraction} : le texte des PDF est extrait page par page (pdf-parse) puis découpé en fragments avec recouvrement pour ne pas couper les idées ;
+    \item \textbf{Vectorisation locale} : les fragments et la question sont transformés en vecteurs par un modèle \textbf{E5 multilingue} exécuté localement (ONNX, via \texttt{@xenova/transformers}), sans appel réseau ni coût ;
+    \item \textbf{Sélection} : les fragments sont classés par similarité cosinus ; les plus pertinents (top-k, seuil 0,3) sont retenus dans la limite d'un \textbf{budget de contexte} adapté à la fenêtre du modèle local ;
+    \item \textbf{Génération encadrée} : le modèle reçoit des consignes strictes -- répondre en français, ne se fonder que sur le contexte, citer les sources au format \texttt{(fichier.pdf, page N)} et déclarer explicitement l'absence d'information plutôt que d'inventer ;
+    \item \textbf{Sortie structurée} : la réponse est demandée au format JSON (\texttt{reponse}, \texttt{trouve}, \texttt{confiance}, \texttt{sources}), ce qui permet d'afficher des \textbf{citations} et un \textbf{niveau de confiance} ;
+    \item \textbf{Performances et robustesse} : mise en cache des fragments vectorisés (mémoire + disque), cache des résumés de formation (durée de vie 24~h, invalidé si les documents changent), \textbf{repli par mots-clés} si les embeddings sont indisponibles et \textbf{repli hors-ligne} restituant les extraits les plus pertinents si le modèle est injoignable.
+\end{itemize}
+
+L'accès au RAG est \textbf{contrôlé} : un participant ne peut interroger que les formations auxquelles il est inscrit (ou dans lesquelles il a été affecté), garantissant la confidentialité des supports.
+
+\capture{assistant rag.png}{Assistant IA contextuel d'une formation (résumé et questions)}
+
+\subsection{Génération assistée de textes}
+
+Le module IA produit également deux contenus rédactionnels :
+\begin{itemize}
+    \item le \textbf{résumé de session}, construit à partir de données structurées (taux de présence, notes moyennes, points forts, axes d'amélioration, commentaires) et destiné aux comptes-rendus officiels ;
+    \item le \textbf{texte du certificat}, généré au format JSON strict (titre, corps, mention d'assiduité, compétences) à partir de l'assiduité et de la note du participant.
+\end{itemize}
+
+Pour chacune de ces fonctions, un \textbf{texte de repli} déterministe est prévu : même si le modèle de langage est indisponible, l'utilisateur obtient toujours un résultat cohérent. Le choix du fournisseur est configurable : \textbf{modèle local} (Ollama, Gemma 3 4B) par défaut, ou \textbf{API cloud} (Groq) via une variable d'environnement. Les appels intègrent un mécanisme de \textbf{nouvel essai avec délai croissant} en cas de limitation de débit ou d'erreur serveur.
+
+\section{Sécurité et contrôle d'accès}
+
+La sécurité repose sur plusieurs mécanismes complémentaires : hachage des mots de passe (bcrypt), jetons JWT à durée de vie courte avec rafraîchissement, \textbf{guards} NestJS protégeant les routes selon le rôle (administrateur, formateur, participant), validation et filtrage des entrées par un \texttt{ValidationPipe} global, et restriction des accès aux fichiers (supports, documents, certificats). Les fichiers téléversés sont contrôlés sur leur type et leur taille.
+
+\section{Tests et qualité}
+
+Des \textbf{tests de charge} ont été réalisés avec l'outil \textbf{k6} afin de vérifier le comportement de l'API sous un nombre croissant de requêtes simultanées. Sur le plan de la qualité, le code est typé de bout en bout (TypeScript), le backend est modularisé et une journalisation applicative trace les appels à l'IA (durée, modèle, jetons consommés) ainsi que les erreurs, facilitant le diagnostic.
+
+\enlargethispage{2cm}
+
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion du chapitre 4}
+\hrulefill
+
+Ce chapitre a présenté les principales réalisations de la plateforme StegForma selon la méthodologie Scrum. L'application offre une interface complète de gestion des formations, des sessions, des inscriptions, des présences, des évaluations, des certificats et des documents signés, ainsi qu'un tableau de bord de pilotage. Elle intègre également un module d'intelligence artificielle combinant un assistant conversationnel capable d'actions, un moteur documentaire RAG avec citations et un générateur de textes, tout en assurant un fonctionnement dégradé robuste lorsque les services d'IA sont indisponibles.
+
+% ############################################################
+% CONCLUSION GÉNÉRALE
+% ############################################################
+\chapter*{Conclusion générale}
+\addcontentsline{toc}{chapter}{Conclusion générale}
+
+Ce stage d'été au sein de la \organisme\ m'a permis de participer à la conception et au développement d'une plateforme complète de gestion des formations, alliant gestion opérationnelle (catalogue, sessions, inscriptions, présence, évaluation, certification) et intelligence artificielle appliquée à l'exploitation documentaire.
+
+Sur le plan technique, j'ai pu mettre en pratique des compétences en :
+\begin{itemize}
+    \item \textbf{ingénierie documentaire} : extraction, découpage et vectorisation de supports PDF, et mise en œuvre d'un moteur de recherche sémantique ;
+    \item \textbf{intégration de modèles de langage} : prompts encadrés, sorties JSON structurées, citations de sources, gestion des erreurs et repli hors-ligne ;
+    \item \textbf{développement full-stack} : React/TanStack côté frontend, NestJS/TypeORM/MySQL côté backend ;
+    \item \textbf{sécurité applicative} : authentification JWT, contrôle d'accès par rôle et validation des entrées.
+\end{itemize}
+
+Sur le plan méthodologique, j'ai appris à composer avec une contrainte fréquente en entreprise : la nécessité de livrer des fonctionnalités utilisables même lorsqu'un service externe (ici le modèle de langage) est indisponible, en concevant systématiquement des mécanismes de repli.
+
+Ce projet ouvre plusieurs perspectives d'évolution :
+\begin{itemize}
+    \item l'enrichissement du moteur RAG (recherche hybride mots-clés + vecteurs, base vectorielle dédiée, réponses sur des documents non PDF) ;
+    \item l'ajout d'une \textbf{explicabilité} des recommandations et de tableaux de bord prédictifs (anticipation du taux de présence) ;
+    \item le renforcement des actions pilotées par l'assistant (validation groupée d'inscriptions, relances automatiques) ;
+    \item le déploiement en production avec conteneurisation (Docker) et authentification \textbf{SSO} au niveau de la STEG ;
+    \item la génération de documents officiels supplémentaires (attestations de paiement, rapports de session signés).
+\end{itemize}
+
+Ce stage a été une expérience professionnelle et technique très enrichissante, qui confirme mon orientation vers le développement d'applications web et l'intégration de solutions d'intelligence artificielle.
+
+% ############################################################
+% BIBLIOGRAPHIE
+% ############################################################
+\clearpage
+
+\section*{Bibliographie et Netographie}
+\addcontentsline{toc}{chapter}{Bibliographie et Netographie}
+\markboth{Bibliographie et Netographie}{Bibliographie et Netographie}
+
+\begingroup
+\renewcommand{\chapter}[2]{}
+\begin{thebibliography}{99}
+
+\bibitem{scrum} Schwaber, K., \& Sutherland, J. (2020). \textit{The Scrum Guide}. Disponible en ligne : \url{https://scrumguides.org}
+
+\bibitem{nestjs} Documentation officielle NestJS -- \url{https://docs.nestjs.com}
+
+\bibitem{typeorm} Documentation officielle TypeORM -- \url{https://typeorm.io}
+
+\bibitem{react} Documentation officielle React -- \url{https://react.dev}
+
+\bibitem{tanstack} Documentation TanStack (Start, Router, Query) -- \url{https://tanstack.com}
+
+\bibitem{tailwind} Documentation Tailwind CSS -- \url{https://tailwindcss.com}
+
+\bibitem{shadcn} Documentation shadcn/ui -- \url{https://ui.shadcn.com}
+
+\bibitem{jwt} RFC 7519 -- JSON Web Token (JWT) -- \url{https://datatracker.ietf.org/doc/html/rfc7519}
+
+\bibitem{mysql} Documentation MySQL -- \url{https://dev.mysql.com/doc/}
+
+\bibitem{pdfkit} Documentation PDFKit -- \url{https://pdfkit.org}
+
+\bibitem{xenova} Documentation Transformers.js (@xenova/transformers) -- \url{https://github.com/huggingface/transformers.js}
+
+\bibitem{e5} Wang, L. et al. (2022). \textit{Text Embeddings by Weakly-Supervised Contrastive Pre-training} (E5).
+
+\bibitem{ollama} Documentation Ollama -- \url{https://ollama.com}
+
+\bibitem{groq} Documentation de l'API Groq -- \url{https://console.groq.com/docs}
+
+\bibitem{k6} Documentation Grafana k6 -- \url{https://k6.io/docs/}
+
+\bibitem{softeng} Sommerville, I. (2015). \textit{Software Engineering}. Pearson.
+
+\bibitem{steg} Site institutionnel de la STEG -- \url{https://www.steg.com.tn}
+
+\end{thebibliography}
+\endgroup
+
+\end{document}

@@ -4,6 +4,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { getEvaluations } from "@/lib/api/evaluations";
 import { getSessions } from "@/lib/api/sessions";
 import { getFormations } from "@/lib/api/formations";
+import { queryKeys } from "@/lib/api/query-keys";
 import { useState } from "react";
 import * as XLSX from "xlsx";
 import {
@@ -903,17 +904,17 @@ function GrilleCard({
 
 function AdminKPIPage() {
   const { data: evaluations, isLoading: evLoading } = useQuery({
-    queryKey: ["evaluations"],
+    queryKey: queryKeys.evaluations(),
     queryFn: () => getEvaluations(),
   });
 
   const { data: sessions } = useQuery({
-    queryKey: ["sessions-all"],
+    queryKey: queryKeys.sessionsAll,
     queryFn: () => getSessions(true),
   });
 
   const { data: formations } = useQuery({
-    queryKey: ["formations-all"],
+    queryKey: queryKeys.formationsAll,
     queryFn: () => getFormations({ all: true }),
   });
 

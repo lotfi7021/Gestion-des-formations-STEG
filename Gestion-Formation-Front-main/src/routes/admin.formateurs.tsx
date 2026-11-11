@@ -13,24 +13,16 @@ import {
   Clock,
   Phone,
 } from "lucide-react";
-
-function StarRating({ value }: { value: number }) {
-  return (
-    <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map((s) => (
-        <Star
-          key={s}
-          className={`h-3 w-3 ${s <= Math.round(value) ? "fill-ochre text-ochre" : "text-muted-foreground/20"}`}
-        />
-      ))}
-    </div>
-  );
-}
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { StarRating } from "@/components/star-rating";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/admin-shell";
 import { API_BASE, API_URL } from "@/lib/api/client";
+import { queryKeys } from "@/lib/api/query-keys";
+import { getErrorMessage } from "@/lib/api/errors";
 import {
   getFormateurs,
   createFormateur,
@@ -62,7 +54,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { formateurSchema } from "@/lib/validations";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { formateurSchema, type FormateurData } from "@/lib/validations";
 
 export const Route = createFileRoute("/admin/formateurs")({
   component: AdminFormateurs,
@@ -81,15 +81,17 @@ function AdminFormateurs() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const form = useForm<FormateurData>({
+    resolver: zodResolver(formateurSchema),
+    defaultValues: emptyForm,
+  });
   const [pendingDocs, setPendingDocs] = useState<Record<string, File>>({});
   const [detailFormateur, setDetailFormateur] = useState<Formateur | null>(null);
   const [search, setSearch] = useState("");
 
   const { data: formateurs, isLoading } = useQuery({
-    queryKey: ["formateurs"],
+    queryKey: queryKeys.formateurs,
     queryFn: () => getFormateurs(),
   });
   const filtered = (formateurs || []).filter((f) => {
@@ -105,28 +107,24 @@ function AdminFormateurs() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (editingId) return updateFormateur(editingId, form);
-      const created = await createFormateur(form);
+      const values = form.getValues();
+      if (editingId) return updateFormateur(editingId, values);
+      const created = await createFormateur(values);
       for (const [type, file] of Object.entries(pendingDocs)) {
         await uploadFormateurDocument(created.id, type, file);
       }
       return created;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["formateurs"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.formateurs });
       setOpen(false);
       setEditingId(null);
-      setForm(emptyForm);
+      form.reset(emptyForm);
       setPendingDocs({});
       toast.success(editingId ? "Formateur modifié" : "Formateur ajouté · Email envoyé");
     },
     onError: (err: Error) => {
-      try {
-        const msg = JSON.parse(err.message);
-        toast.error(msg.message || "Erreur");
-      } catch {
-        toast.error("Erreur lors de l'enregistrement");
-      }
+      toast.error(getErrorMessage(err, "Erreur lors de l'enregistrement"));
     },
   });
 
@@ -134,7 +132,7 @@ function AdminFormateurs() {
     mutationFn: ({ id, type, file }: { id: string; type: string; file: File }) =>
       uploadFormateurDocument(id, type, file),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["formateurs"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.formateurs });
       toast.success("Document ajouté");
     },
     onError: (err: Error) => toast.error(err.message || "Erreur upload"),
@@ -143,27 +141,26 @@ function AdminFormateurs() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteFormateur(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["formateurs"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.formateurs });
       setDeleteId(null);
       toast.success("Formateur supprimé");
     },
     onError: (err: Error) => {
-      console.error("Delete formateur error:", err);
-      toast.error(err.message || "Erreur lors de la suppression");
+      toast.error(getErrorMessage(err, "Erreur lors de la suppression"));
       setDeleteId(null);
     },
   });
 
   const openCreate = () => {
     setEditingId(null);
-    setForm(emptyForm);
+    form.reset(emptyForm);
     setPendingDocs({});
     setOpen(true);
   };
 
   const openEdit = (t: Formateur) => {
     setEditingId(t.id);
-    setForm({
+    form.reset({
       nom: t.nom,
       prenom: t.prenom,
       email: t.email,
@@ -187,7 +184,7 @@ function AdminFormateurs() {
             setOpen(v);
             if (!v) {
               setEditingId(null);
-              setForm(emptyForm);
+              form.reset(emptyForm);
               setPendingDocs({});
             }
           }}
@@ -201,186 +198,208 @@ function AdminFormateurs() {
             <DialogHeader>
               <DialogTitle>{editingId ? "Modifier le formateur" : "Nouveau formateur"}</DialogTitle>
             </DialogHeader>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                setFormErrors({});
-                const r = formateurSchema.safeParse(form);
-                if (!r.success) {
-                  const fe: Record<string, string> = {};
-                  r.error.issues.forEach((i) => {
-                    const f = i.path[0] as string;
-                    if (!fe[f]) fe[f] = i.message;
-                  });
-                  setFormErrors(fe);
-                  return;
-                }
-                if (!editingId) {
-                  const missing = DOCUMENT_TYPES.filter((dt) => !pendingDocs[dt.key]);
-                  if (missing.length) {
-                    toast.error(`Documents requis : ${missing.map((m) => m.label).join(", ")}`);
-                    return;
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(() => {
+                  if (!editingId) {
+                    const missing = DOCUMENT_TYPES.filter((dt) => !pendingDocs[dt.key]);
+                    if (missing.length) {
+                      toast.error(`Documents requis : ${missing.map((m) => m.label).join(", ")}`);
+                      return;
+                    }
                   }
-                }
-                saveMutation.mutate();
-              }}
-              className="space-y-4"
-            >
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Nom</Label>
-                  <Input
-                    placeholder="ex : Martin"
-                    value={form.nom}
-                    onChange={(e) => setForm({ ...form, nom: e.target.value })}
+                  saveMutation.mutate();
+                })}
+                className="space-y-4"
+              >
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="nom"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nom</FormLabel>
+                        <FormControl>
+                          <Input placeholder="ex : Martin" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                  {formErrors.nom && (
-                    <p className="mt-1 text-xs text-destructive">{formErrors.nom}</p>
-                  )}
-                </div>
-                <div>
-                  <Label>Prénom</Label>
-                  <Input
-                    placeholder="ex : Sophie"
-                    value={form.prenom}
-                    onChange={(e) => setForm({ ...form, prenom: e.target.value })}
+                  <FormField
+                    control={form.control}
+                    name="prenom"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Prénom</FormLabel>
+                        <FormControl>
+                          <Input placeholder="ex : Sophie" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                  {formErrors.prenom && (
-                    <p className="mt-1 text-xs text-destructive">{formErrors.prenom}</p>
+                </div>
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="ex : sophie.martin@exemple.fr"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                </div>
-              </div>
-              <div>
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  placeholder="ex : sophie.martin@exemple.fr"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
                 />
-                {formErrors.email && (
-                  <p className="mt-1 text-xs text-destructive">{formErrors.email}</p>
-                )}
-              </div>
-              <div>
-                <Label>Téléphone</Label>
-                <Input
-                  placeholder="+216XXXXXXXX"
-                  value={form.telephone}
-                  onChange={(e) => setForm({ ...form, telephone: e.target.value })}
-                  onBlur={(e) => setForm({ ...form, telephone: formatPhone(e.target.value) })}
+                <FormField
+                  control={form.control}
+                  name="telephone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Téléphone</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="+216XXXXXXXX"
+                          {...field}
+                          onBlur={(e) => {
+                            field.onBlur();
+                            field.onChange(formatPhone(e.target.value));
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                {formErrors.telephone && (
-                  <p className="mt-1 text-xs text-destructive">{formErrors.telephone}</p>
-                )}
-              </div>
-              <div>
-                <Label>Spécialités</Label>
-                <Input
-                  placeholder="ex : Cybersécurité, Réseau"
-                  value={form.specialites}
-                  onChange={(e) => setForm({ ...form, specialites: e.target.value })}
+                <FormField
+                  control={form.control}
+                  name="specialites"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Spécialités</FormLabel>
+                      <FormControl>
+                        <Input placeholder="ex : Cybersécurité, Réseau" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div>
-                <Label>Qualifications</Label>
-                <Textarea
-                  placeholder="Diplômes, certifications, années d'expérience..."
-                  value={form.qualifications}
-                  onChange={(e) => setForm({ ...form, qualifications: e.target.value })}
+                <FormField
+                  control={form.control}
+                  name="qualifications"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Qualifications</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Diplômes, certifications, années d'expérience..."
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
 
-              {/* Documents obligatoires */}
-              {!editingId && (
-                <div className="rounded-lg border border-border bg-background p-4">
-                  <p className="mb-3 text-sm font-semibold">Documents obligatoires (PDF)</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    {DOCUMENT_TYPES.map((dt) => (
-                      <div key={dt.key} className="space-y-1">
-                        <Label className="text-xs">{dt.label}</Label>
-                        <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border bg-background px-3 py-2 text-xs text-muted-foreground hover:bg-secondary/50">
-                          <Upload className="h-3.5 w-3.5" />
-                          <span className="truncate">
-                            {pendingDocs[dt.key]?.name || "Choisir un fichier"}
-                          </span>
-                          <input
-                            type="file"
-                            accept=".pdf,application/pdf"
-                            className="hidden"
-                            onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              if (f) setPendingDocs((prev) => ({ ...prev, [dt.key]: f }));
-                            }}
-                          />
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Documents existants en mode édition */}
-              {editingId &&
-                (() => {
-                  const formateur = formateurs?.find((f) => f.id === editingId);
-                  if (!formateur) return null;
-                  return (
-                    <div className="rounded-lg border border-border bg-background p-4">
-                      <p className="mb-3 text-sm font-semibold">Documents</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {DOCUMENT_TYPES.map((dt) => {
-                          const url = formateur[dt.field as keyof Formateur] as string | undefined;
-                          return (
-                            <div
-                              key={dt.key}
-                              className="flex items-center gap-2 rounded-md border border-border p-2.5"
-                            >
-                              <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                              {url ? (
-                                <a
-                                  href={`${UPLOADS_BASE}${url}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1 text-xs text-primary hover:underline"
-                                >
-                                  {dt.label} <Download className="h-3 w-3" />
-                                </a>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">
-                                  {dt.label} · Non fourni
-                                </span>
-                              )}
-                              <label className="ml-auto cursor-pointer rounded p-1 text-muted-foreground hover:bg-secondary">
-                                <Upload className="h-3.5 w-3.5" />
-                                <input
-                                  type="file"
-                                  accept=".pdf,application/pdf"
-                                  className="hidden"
-                                  onChange={(e) => {
-                                    const f = e.target.files?.[0];
-                                    if (f && editingId)
-                                      uploadMutation.mutate({
-                                        id: editingId,
-                                        type: dt.key,
-                                        file: f,
-                                      });
-                                  }}
-                                />
-                              </label>
-                            </div>
-                          );
-                        })}
-                      </div>
+                {/* Documents obligatoires */}
+                {!editingId && (
+                  <div className="rounded-lg border border-border bg-background p-4">
+                    <p className="mb-3 text-sm font-semibold">Documents obligatoires (PDF)</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {DOCUMENT_TYPES.map((dt) => (
+                        <div key={dt.key} className="space-y-1">
+                          <Label className="text-xs">{dt.label}</Label>
+                          <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border bg-background px-3 py-2 text-xs text-muted-foreground hover:bg-secondary/50">
+                            <Upload className="h-3.5 w-3.5" />
+                            <span className="truncate">
+                              {pendingDocs[dt.key]?.name || "Choisir un fichier"}
+                            </span>
+                            <input
+                              type="file"
+                              accept=".pdf,application/pdf"
+                              className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) setPendingDocs((prev) => ({ ...prev, [dt.key]: f }));
+                              }}
+                            />
+                          </label>
+                        </div>
+                      ))}
                     </div>
-                  );
-                })()}
+                  </div>
+                )}
 
-              <Button type="submit" className="w-full" disabled={saveMutation.isPending}>
-                {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {editingId ? "Enregistrer les modifications" : "Ajouter le formateur"}
-              </Button>
-            </form>
+                {/* Documents existants en mode édition */}
+                {editingId &&
+                  (() => {
+                    const formateur = formateurs?.find((f) => f.id === editingId);
+                    if (!formateur) return null;
+                    return (
+                      <div className="rounded-lg border border-border bg-background p-4">
+                        <p className="mb-3 text-sm font-semibold">Documents</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {DOCUMENT_TYPES.map((dt) => {
+                            const url = formateur[dt.field as keyof Formateur] as
+                              | string
+                              | undefined;
+                            return (
+                              <div
+                                key={dt.key}
+                                className="flex items-center gap-2 rounded-md border border-border p-2.5"
+                              >
+                                <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                {url ? (
+                                  <a
+                                    href={`${UPLOADS_BASE}${url}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1 text-xs text-primary hover:underline"
+                                  >
+                                    {dt.label} <Download className="h-3 w-3" />
+                                  </a>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">
+                                    {dt.label} · Non fourni
+                                  </span>
+                                )}
+                                <label className="ml-auto cursor-pointer rounded p-1 text-muted-foreground hover:bg-secondary">
+                                  <Upload className="h-3.5 w-3.5" />
+                                  <input
+                                    type="file"
+                                    accept=".pdf,application/pdf"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0];
+                                      if (f && editingId)
+                                        uploadMutation.mutate({
+                                          id: editingId,
+                                          type: dt.key,
+                                          file: f,
+                                        });
+                                    }}
+                                  />
+                                </label>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                <Button type="submit" className="w-full" disabled={saveMutation.isPending}>
+                  {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {editingId ? "Enregistrer les modifications" : "Ajouter le formateur"}
+                </Button>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       }
@@ -433,7 +452,7 @@ function AdminFormateurs() {
                     </h3>
                     <p className="truncate text-xs text-muted-foreground">{t.specialites || "—"}</p>
                     <div className="mt-2 flex items-center gap-2">
-                      <StarRating value={t.noteGlobale} />
+                      <StarRating value={t.noteGlobale} className="h-3 w-3" />
                       <span className="text-xs text-muted-foreground">
                         ({t.noteGlobale || "—"})
                       </span>

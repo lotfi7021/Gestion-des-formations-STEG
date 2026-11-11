@@ -1,11 +1,12 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Loader2, UserPlus, Moon, Sun, ArrowLeft } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { PageShell } from "@/components/page-shell";
 import { api } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -13,7 +14,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { registerSchema } from "@/lib/validations";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { registerSchema, type RegisterData } from "@/lib/validations";
+import { useDarkMode } from "@/hooks/use-dark-mode";
 
 export const Route = createFileRoute("/inscription")({
   head: () => ({
@@ -23,46 +33,35 @@ export const Route = createFileRoute("/inscription")({
 });
 
 function InscriptionPage() {
-  const router = useRouter();
-  const [form, setForm] = useState({
-    username: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    role: "participant",
-  });
-  const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const { dark, toggle } = useDarkMode();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrors({});
-    const result = registerSchema.safeParse(form);
-    if (!result.success) {
-      const fieldErrors: Record<string, string> = {};
-      result.error.issues.forEach((issue) => {
-        const field = issue.path[0] as string;
-        if (!fieldErrors[field]) fieldErrors[field] = issue.message;
-      });
-      setErrors(fieldErrors);
-      return;
-    }
-    setLoading(true);
+  const form = useForm<RegisterData>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      username: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      role: "participant",
+    },
+  });
+
+  const handleSubmit = form.handleSubmit(async (values) => {
     try {
       await api.post("/auth/register", {
-        username: form.username,
-        email: form.email,
-        password: form.password,
-        role: form.role,
+        username: values.username,
+        email: values.email,
+        password: values.password,
+        role: values.role,
       });
       setSuccess(true);
     } catch (err) {
-      setErrors({ general: err instanceof Error ? err.message : "Erreur lors de l'inscription" });
-    } finally {
-      setLoading(false);
+      form.setError("root", {
+        message: err instanceof Error ? err.message : "Erreur lors de l'inscription",
+      });
     }
-  };
+  });
 
   if (success) {
     return (
@@ -137,102 +136,114 @@ function InscriptionPage() {
         </div>
         <button
           type="button"
-          onClick={() => {
-            const next = !document.documentElement.classList.contains("dark");
-            document.documentElement.classList.toggle("dark", next);
-            localStorage.setItem("theme", next ? "dark" : "light");
-          }}
+          onClick={toggle}
           className="absolute right-4 top-4 rounded-md border border-[#2d3e3a]/20 p-2 text-[#2d3e3a] transition-colors hover:bg-white/40 dark:border-sidebar-border dark:text-sidebar-foreground dark:hover:bg-sidebar-accent"
         >
-          {document.documentElement.classList.contains("dark") ? (
-            <Sun className="h-4 w-4" />
-          ) : (
-            <Moon className="h-4 w-4" />
-          )}
+          {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </button>
       </div>
       <div className="flex flex-1 items-center justify-center px-6 py-16">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
-            <img
-              src="/images/image.png"
-              alt="steg_form"
-              className="mx-auto h-12 w-auto md:hidden"
-            />
+            <img src="/images/logo.png" alt="steg_form" className="mx-auto h-12 w-auto md:hidden" />
             <h1 className="mt-4 font-display text-4xl">Créer un compte</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Inscrivez-vous en tant que participant ou formateur
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-8">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label>Nom d'utilisateur</Label>
-                <Input
-                  placeholder="ex : jean.dupont"
-                  value={form.username}
-                  onChange={(e) => setForm({ ...form, username: e.target.value })}
+            <Form {...form}>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nom d'utilisateur</FormLabel>
+                      <FormControl>
+                        <Input placeholder="ex : jean.dupont" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                {errors.username && (
-                  <p className="mt-1 text-xs text-destructive">{errors.username}</p>
-                )}
-              </div>
-              <div>
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  placeholder="ex : jean@exemple.fr"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="ex : jean@exemple.fr" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                {errors.email && <p className="mt-1 text-xs text-destructive">{errors.email}</p>}
-              </div>
-              <div>
-                <Label>Mot de passe</Label>
-                <Input
-                  type="password"
-                  placeholder="6 caractères minimum"
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Mot de passe</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="6 caractères minimum" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                {errors.password && (
-                  <p className="mt-1 text-xs text-destructive">{errors.password}</p>
-                )}
-              </div>
-              <div>
-                <Label>Confirmer le mot de passe</Label>
-                <Input
-                  type="password"
-                  placeholder="Ressaisissez le mot de passe"
-                  value={form.confirmPassword}
-                  onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                <FormField
+                  control={form.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirmer le mot de passe</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="Ressaisissez le mot de passe"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                {errors.confirmPassword && (
-                  <p className="mt-1 text-xs text-destructive">{errors.confirmPassword}</p>
+                <FormField
+                  control={form.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Rôle</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="participant">Participant</SelectItem>
+                          <SelectItem value="formateur">Formateur</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {form.formState.errors.root && (
+                  <p className="text-sm text-destructive">{form.formState.errors.root.message}</p>
                 )}
-              </div>
-              <div>
-                <Label>Rôle</Label>
-                <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="participant">Participant</SelectItem>
-                    <SelectItem value="formateur">Formateur</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {errors.form && <p className="text-sm text-destructive">{errors.form}</p>}
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <UserPlus className="h-4 w-4" />
-                )}
-                {loading ? "Inscription en cours..." : "S'inscrire"}
-              </Button>
-            </form>
+                <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <UserPlus className="h-4 w-4" />
+                  )}
+                  {form.formState.isSubmitting ? "Inscription en cours..." : "S'inscrire"}
+                </Button>
+              </form>
+            </Form>
             <p className="mt-6 text-center text-sm text-muted-foreground">
               Déjà inscrit ?{" "}
               <Link to="/connexion" className="text-primary hover:underline">

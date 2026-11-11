@@ -35,7 +35,7 @@ export class EmbeddingsService {
 
     this.pipelinePromise = (async () => {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { pipeline } = require('@xenova/transformers');
         this.logger.log(`Chargement du modèle d'embeddings "${this.model}"…`);
         const pipe = await pipeline('feature-extraction', this.model);

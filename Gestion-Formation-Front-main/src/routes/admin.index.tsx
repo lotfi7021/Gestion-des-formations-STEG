@@ -14,6 +14,7 @@ import { getFormations } from "@/lib/api/formations";
 import { getSessions } from "@/lib/api/sessions";
 import { getParticipants } from "@/lib/api/users";
 import { getFormateurs } from "@/lib/api/formateurs";
+import { queryKeys } from "@/lib/api/query-keys";
 
 export const Route = createFileRoute("/admin/")({
   component: AdminDashboard,
@@ -21,13 +22,19 @@ export const Route = createFileRoute("/admin/")({
 
 function AdminDashboard() {
   const { data: formations } = useQuery({
-    queryKey: ["formations"],
+    queryKey: queryKeys.formations,
     queryFn: () => getFormations(),
   });
-  const { data: sessions } = useQuery({ queryKey: ["sessions"], queryFn: () => getSessions() });
-  const { data: participants } = useQuery({ queryKey: ["participants"], queryFn: getParticipants });
+  const { data: sessions } = useQuery({
+    queryKey: queryKeys.sessions,
+    queryFn: () => getSessions(),
+  });
+  const { data: participants } = useQuery({
+    queryKey: queryKeys.participants,
+    queryFn: getParticipants,
+  });
   const { data: formateurs } = useQuery({
-    queryKey: ["formateurs"],
+    queryKey: queryKeys.formateurs,
     queryFn: () => getFormateurs(),
   });
 

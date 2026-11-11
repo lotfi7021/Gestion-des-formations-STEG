@@ -14,6 +14,7 @@ import {
   isTokenExpired,
   tryRefreshToken,
 } from "../lib/api/client";
+import { saveAuthUser, clearAuthUser } from "../lib/route-auth";
 
 type AuthContextType = {
   user: User | null;
@@ -55,8 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const profile = await getProfile();
         setUser(profile);
+        saveAuthUser(profile);
       } catch {
         clearTokens();
+        clearAuthUser();
       } finally {
         setIsLoading(false);
       }
@@ -68,6 +71,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await apiLogin(dto);
     setTokens(res.access_token, res.refresh_token);
     setUser(res.user);
+    saveAuthUser(res.user);
+  }, []);
+
+  const updateUser = useCallback((nextUser: User | null) => {
+    setUser(nextUser);
+    if (nextUser) saveAuthUser(nextUser);
+    else clearAuthUser();
   }, []);
 
   const logout = useCallback(async () => {
@@ -77,12 +87,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ignore errors
     }
     clearTokens();
+    clearAuthUser();
     setUser(null);
   }, []);
 
   return (
     <AuthContext.Provider
-      value={{ user, isAuthenticated: !!user, isLoading, login, logout, setUser }}
+      value={{ user, isAuthenticated: !!user, isLoading, login, logout, setUser: updateUser }}
     >
       {children}
     </AuthContext.Provider>

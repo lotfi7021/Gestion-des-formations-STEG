@@ -48,6 +48,12 @@ function getRefreshToken(): string | null {
   return typeof window !== "undefined" ? localStorage.getItem("refresh_token") : null;
 }
 
+/** En-têtes d'authentification pour les requêtes non-JSON (upload multipart, téléchargement blob). */
+function getAuthHeaders(): Record<string, string> {
+  const token = getAccessToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 function setTokens(access: string, refresh: string) {
   localStorage.setItem("access_token", access);
   localStorage.setItem("refresh_token", refresh);
@@ -156,6 +162,7 @@ export {
   clearTokens,
   getAccessToken,
   getRefreshToken,
+  getAuthHeaders,
   tryRefreshToken,
   isTokenExpired,
   API_BASE,

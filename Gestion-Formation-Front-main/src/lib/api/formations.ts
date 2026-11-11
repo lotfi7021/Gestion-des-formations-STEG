@@ -1,4 +1,4 @@
-import { api, API_BASE } from "./client";
+import { api, API_BASE, getAuthHeaders } from "./client";
 import type { SessionRef } from "./types";
 
 export type Formation = {
@@ -51,12 +51,16 @@ export type CreateFormationDto = {
  * tableau), on extrait ici le tableau `data`. Utiliser getFormationsPaginated()
  * pour accéder aux métadonnées de pagination.
  */
-export async function getFormations(options: { all?: boolean; page?: number; limit?: number } = {}): Promise<Formation[]> {
+export async function getFormations(
+  options: { all?: boolean; page?: number; limit?: number } = {},
+): Promise<Formation[]> {
   const paginated = await getFormationsPaginated(options);
   return paginated.data ?? [];
 }
 
-export async function getFormationsPaginated(options: { all?: boolean; page?: number; limit?: number } = {}): Promise<PaginatedFormations> {
+export async function getFormationsPaginated(
+  options: { all?: boolean; page?: number; limit?: number } = {},
+): Promise<PaginatedFormations> {
   const params = new URLSearchParams();
   if (options.all) params.set("all", "true");
   if (options.page) params.set("page", options.page.toString());
@@ -85,10 +89,9 @@ export async function deleteFormation(id: string): Promise<void> {
 }
 
 export async function uploadFormationSupport(id: string, file: File): Promise<Formation> {
-  const token = localStorage.getItem("access_token");
   const res = await fetch(`${API_BASE}/formations/${id}/upload`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(),
     body: (() => {
       const fd = new FormData();
       fd.append("file", file);
@@ -100,10 +103,9 @@ export async function uploadFormationSupport(id: string, file: File): Promise<Fo
 }
 
 export async function uploadFormationImage(id: string, file: File): Promise<Formation> {
-  const token = localStorage.getItem("access_token");
   const res = await fetch(`${API_BASE}/formations/${id}/upload-image`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(),
     body: (() => {
       const fd = new FormData();
       fd.append("image", file);

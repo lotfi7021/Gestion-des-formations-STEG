@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { Presence } from '../../entities/presence.entity';
 import { User } from '../../entities/user.entity';
 import { Session } from '../../entities/session.entity';
@@ -23,12 +23,21 @@ export class PresenceService {
    * Initialise automatiquement une ligne de présence (ABSENT par défaut)
    * pour chaque jour de la session, pour un participant donné.
    * Évite les doublons si les présences existent déjà.
+   * `manager` permet d'intégrer ces écritures dans une transaction existante.
    */
-  async initPresencesForParticipant(sessionId: string, userId: string): Promise<Presence[]> {
-    const session = await this.sessionRepository.findOneBy({ id: sessionId });
+  async initPresencesForParticipant(
+    sessionId: string,
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<Presence[]> {
+    const sessionRepository = manager ? manager.getRepository(Session) : this.sessionRepository;
+    const userRepository = manager ? manager.getRepository(User) : this.userRepository;
+    const presenceRepository = manager ? manager.getRepository(Presence) : this.presenceRepository;
+
+    const session = await sessionRepository.findOneBy({ id: sessionId });
     if (!session) throw new NotFoundException(`Session #${sessionId} introuvable`);
 
-    const user = await this.userRepository.findOneBy({ id: userId });
+    const user = await userRepository.findOneBy({ id: userId });
     if (!user) throw new NotFoundException(`Utilisateur #${userId} introuvable`);
 
     // Générer la liste de toutes les dates de la session (1 par jour)
@@ -37,7 +46,7 @@ export class PresenceService {
     const created: Presence[] = [];
     for (const date of dates) {
       // Vérifier si une présence existe déjà pour ce jour/participant
-      const existing = await this.presenceRepository.findOne({
+      const existing = await presenceRepository.findOne({
         where: {
           session: { id: sessionId },
           user: { id: userId },
@@ -46,14 +55,14 @@ export class PresenceService {
       });
       if (existing) continue;
 
-      const presence = this.presenceRepository.create({
+      const presence = presenceRepository.create({
         datePresence: date,
         statutFormation: PresenceStatus.ABSENT,
         statutCantine: PresenceStatus.ABSENT,
         user,
         session,
       });
-      created.push(await this.presenceRepository.save(presence));
+      created.push(await presenceRepository.save(presence));
     }
     return created;
   }

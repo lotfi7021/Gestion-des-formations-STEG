@@ -18,6 +18,7 @@ export type Session = {
   isCompleted: boolean;
   isCancelled: boolean;
   notes: string;
+  checkInToken?: string | null;
   formation: FormationRef;
   participants: UserRef[];
   formateurs: UserRef[];
@@ -76,8 +77,12 @@ export async function enrollInSession(sessionId: string): Promise<Session> {
  * Inscription d'un utilisateur à une session par l'admin.
  * paid=true → inscription créée directement confirmée (paiement encaissé sur place).
  */
-export async function adminEnrollUser(userId: string, sessionId: string, paid: boolean): Promise<void> {
-  await api.post('/inscriptions/admin', { userId, sessionId, paid: paid ? 'true' : 'false' });
+export async function adminEnrollUser(
+  userId: string,
+  sessionId: string,
+  paid: boolean,
+): Promise<void> {
+  await api.post("/inscriptions/admin", { userId, sessionId, paid: paid ? "true" : "false" });
 }
 
 export async function getMySessions(type?: string): Promise<Session[]> {

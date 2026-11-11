@@ -1,4 +1,4 @@
-import { api, API_BASE } from "./client";
+import { api, API_BASE, getAccessToken } from "./client";
 
 export type Certificate = {
   id: string;
@@ -34,6 +34,6 @@ export async function generateSessionCertificates(sessionId: string): Promise<Ce
 }
 
 export function getCertificateDownloadUrl(certId: string): string {
-  const token = localStorage.getItem("access_token");
+  const token = getAccessToken();
   return `${API_BASE}/certificates/${certId}/download?token=${token}`;
 }

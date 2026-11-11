@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Loader2, Check, X, Clock } from "lucide-react";
 import { AdminShell } from "@/components/admin-shell";
 import { api } from "@/lib/api/client";
+import { queryKeys } from "@/lib/api/query-keys";
 import { Button } from "@/components/ui/button";
 import type { UserRef } from "@/lib/api/types";
 
@@ -20,14 +21,14 @@ function AdminApprobations() {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["pending-users"],
+    queryKey: queryKeys.pendingUsers,
     queryFn: () => api.get<UserRef[]>("/auth/pending-users"),
   });
 
   const approveMutation = useMutation({
     mutationFn: (id: string) => api.patch(`/auth/approve/${id}`, {}),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pending-users"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.pendingUsers });
       toast.success("Utilisateur approuvé");
     },
     onError: () => toast.error("Erreur lors de l'approbation"),
@@ -36,7 +37,7 @@ function AdminApprobations() {
   const rejectMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/auth/reject/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pending-users"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.pendingUsers });
       toast.success("Inscription rejetée");
     },
     onError: () => toast.error("Erreur lors du rejet"),

@@ -40,9 +40,9 @@ export class SeedService implements OnApplicationBootstrap {
     ];
 
     for (const d of directions) {
-      let dir = await this.entrepriseRepository.findOneBy({ email: d.email });
+      const dir = await this.entrepriseRepository.findOneBy({ email: d.email });
       if (!dir) {
-        dir = await this.entrepriseRepository.save(this.entrepriseRepository.create(d));
+        await this.entrepriseRepository.save(this.entrepriseRepository.create(d));
         console.log(`✓ Direction seedée : ${d.nom}`);
       }
     }
@@ -52,7 +52,7 @@ export class SeedService implements OnApplicationBootstrap {
     const users = [
       {
         username: 'admin',
-        email: 'admin@steg.tn',
+        email: 'lotfi.makhlouf@sesame.com.tn',
         password: process.env.SEED_ADMIN_PASSWORD ?? '123456',
         role: UserRole.ADMIN,
         nom: 'Admin',
@@ -61,7 +61,7 @@ export class SeedService implements OnApplicationBootstrap {
       },
       {
         username: 'formateur',
-        email: 'formateur@steg.tn',
+        email: 'lotfimakhlouf2000@gmail.com',
         password: process.env.SEED_FORMATEUR_PASSWORD ?? '123456',
         role: UserRole.FORMATEUR,
         nom: 'Ben Salah',
@@ -71,7 +71,7 @@ export class SeedService implements OnApplicationBootstrap {
       },
       {
         username: 'participant',
-        email: 'participant@steg.tn',
+        email: 'lotfimaklouf6000@gmail.com',
         password: process.env.SEED_PARTICIPANT_PASSWORD ?? '123456',
         role: UserRole.PARTICIPANT,
         nom: 'Trabelsi',
@@ -81,7 +81,7 @@ export class SeedService implements OnApplicationBootstrap {
         directionText: 'District de Bizerte',
       },
     ];
-
+  
     for (const userData of users) {
       let user = await this.userRepository.findOneBy({ email: userData.email });
       if (!user) {
@@ -96,8 +96,6 @@ export class SeedService implements OnApplicationBootstrap {
           console.log(`✓ ${userData.role} seedé : ${userData.email}`);
         } catch (err: any) {
           if (err.code === 'ER_DUP_ENTRY') {
-            user = await this.userRepository.findOneBy({ email: userData.email })
-              || await this.userRepository.findOneBy({ username: userData.username });
             console.log(`✓ ${userData.role} déjà existant : ${userData.email}`);
           } else {
             throw err;

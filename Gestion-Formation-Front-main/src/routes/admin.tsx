@@ -1,10 +1,9 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
-import { ProtectedRoute } from "@/components/protected-route";
+import { requireAuth } from "@/lib/route-auth";
 
 export const Route = createFileRoute("/admin")({
-  component: () => (
-    <ProtectedRoute requiredRole="admin">
-      <Outlet />
-    </ProtectedRoute>
-  ),
+  beforeLoad: () => {
+    requireAuth(["admin"]);
+  },
+  component: Outlet,
 });

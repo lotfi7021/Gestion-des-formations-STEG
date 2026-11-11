@@ -1,0 +1,492 @@
+========================================================================
+ RAPPORT DE STAGE D'ÉTÉ — STEG
+ Projet : StegForma — Plateforme intelligente de gestion des formations
+========================================================================
+
+CYCLE INGÉNIEUR — 4ème ANNÉE
+RAPPORT DE STAGE D'ÉTÉ
+
+StegForma : plateforme intelligente de gestion des formations professionnelles
+dédiée à la STEG
+
+Réalisé par : Lotfi Makhlouf
+Encadrant de la société : Amel Khlaifi
+Établissement : Université SESAME
+Filière : 4ème année — [Filière]
+Année universitaire : 2025 — 2026
+
+Page de titre : logos université SESAME (à gauche) et STEG (à droite).
+
+
+------------------------------------------------------------------------
+REMERCIEMENTS
+------------------------------------------------------------------------
+Je tiens à exprimer mes sincères remerciements à toute l'équipe de la Société
+Tunisienne de l'Électricité et du Gaz (STEG) — Direction de la Formation et du
+Développement des Compétences — pour son accueil chaleureux et pour m'avoir
+offert l'opportunité d'effectuer ce stage d'été dans d'excellentes conditions.
+
+Je remercie tout particulièrement mon encadrant professionnel, Amel Khlaifi, pour sa
+disponibilité, ses conseils avisés et le suivi rigoureux qu'il a assuré tout au
+long de ce stage, ainsi que pour la confiance qu'il m'a accordée en me laissant
+une réelle autonomie sur la conception et le développement de la plateforme.
+
+Mes remerciements vont également à mon encadrant académique, [nom], pour son
+accompagnement méthodologique et ses retours constructifs sur l'avancement du
+projet.
+
+Enfin, je remercie l'ensemble du corps professoral de l'Université SESAME et du programme
+[Filière] pour la formation solide qui m'a permis d'aborder ce projet avec les
+compétences techniques nécessaires.
+
+
+------------------------------------------------------------------------
+SOMMAIRE
+------------------------------------------------------------------------
+Remerciements
+Introduction générale
+Chapitre 1 — Contexte du projet et spécification des besoins
+Chapitre 2 — Processus méthodologique
+Chapitre 3 — Analyse et spécification des besoins
+Chapitre 4 — Réalisation
+Conclusion générale
+Bibliographie et Netographie
+
+
+------------------------------------------------------------------------
+INTRODUCTION GÉNÉRALE
+------------------------------------------------------------------------
+Dans le cadre de ma formation à l'Université SESAME, j'ai effectué un stage d'été au sein de
+la Société Tunisienne de l'Électricité et du Gaz (STEG), à la Direction de la
+Formation et du Développement des Compétences. Ce stage constitue une immersion
+professionnelle dont l'objectif est de mettre en pratique les compétences
+acquises en génie logiciel, en conception d'applications web et en intégration
+de services d'intelligence artificielle.
+
+La STEG, en tant que grand établissement public tunisien, forme chaque année un
+nombre considérable d'agents : habilitations électriques, sécurité haute tension,
+maintenance des réseaux, qualité de service, etc. La gestion de ce dispositif de
+formation — catalogue, planification des sessions, inscriptions, suivi des
+présences, évaluations, émission des certificats et signature des documents
+officiels — reposait jusqu'ici sur une combinaison de fichiers bureautiques et de
+traitements manuels, ce qui limitait la traçabilité, la fiabilité des indicateurs
+et la rapidité de la relation avec les agents.
+
+C'est dans ce contexte que s'inscrit le projet StegForma : une plateforme web
+complète destinée à centraliser l'ensemble du cycle de vie d'une action de
+formation, depuis la création du catalogue jusqu'à l'émission des certificats
+signés électroniquement, en y intégrant un assistant intelligent capable de
+résumer les supports, de répondre aux questions des participants et d'assister
+l'administrateur dans ses tâches courantes.
+
+Ma contribution au sein de l'équipe projet a porté principalement sur le volet
+IA (assistant conversationnel et moteur de recherche documentaire RAG), tout en
+participant à la conception de l'architecture globale, à la modélisation des
+données et au développement des interfaces de gestion.
+
+Plan du rapport :
+- Chapitre 1 : contexte, organisme d'accueil, problématique et objectifs.
+- Chapitre 2 : processus méthodologique (Scrum).
+- Chapitre 3 : analyse et spécification des besoins.
+- Chapitre 4 : réalisation technique, y compris le module d'IA.
+- Conclusion générale et perspectives.
+
+
+========================================================================
+CHAPITRE 1 — CONTEXTE DU PROJET ET SPÉCIFICATION DES BESOINS
+========================================================================
+
+INTRODUCTION
+Pour assurer le succès du développement de la plateforme StegForma, il est
+essentiel de bien comprendre le contexte du stage ainsi que le cadre général dans
+lequel s'inscrit le projet. Ce chapitre présente l'organisme d'accueil, la
+problématique à l'origine du projet, les objectifs fixés, ainsi qu'un état des
+lieux de l'existant.
+
+1.1 PRÉSENTATION DE L'ORGANISME D'ACCUEIL
+La Société Tunisienne de l'Électricité et du Gaz (STEG) est un établissement
+public à caractère industriel et commercial (EPIC), créé en 1962, chargé de la
+production, du transport et de la distribution de l'électricité et du gaz naturel
+sur l'ensemble du territoire tunisien.
+
+Ses missions principales :
+- Production d'électricité : centrales thermiques et énergies renouvelables.
+- Transport et distribution : réseaux haute tension et distribution aux abonnés.
+- Distribution de gaz : acheminement aux usagers industriels et résidentiels.
+- Service client : contrats, facturation, recouvrement et relation client.
+
+Compte tenu de la technicité de ses métiers et des exigences réglementaires de
+sécurité, la STEG accorde une place centrale à la formation de son personnel. La
+Direction de la Formation et du Développement des Compétences pilote le plan de
+formation annuel : recensement des besoins, planification des sessions,
+mobilisation des formateurs, logistique, évaluation des actions et délivrance des
+attestations. Elle intervient notamment pour les formations d'habilitation
+électrique, de sécurité HTA/BTA, de maintenance des réseaux et de qualité de
+service. Elle collabore avec des administrateurs (gestion du catalogue et des
+sessions), des formateurs (animation et suivi pédagogique) et des participants
+(agents STEG et stagiaires), répartis entre les directions régionales.
+
+1.2 PROBLÉMATIQUE DU PROJET
+1.2.1 Le problème
+La gestion des formations professionnelles de la STEG repose aujourd'hui sur des
+fichiers bureautiques (Excel, Word) et des échanges d'e-mails : catalogue,
+sessions, listes de présence, évaluations et documents officiels sont traités
+séparément, sans lien automatisé. Cette dispersion rend la gestion manuelle, peu
+traçable et difficile à piloter.
+
+1.2.2 La réponse apportée par l'application
+L'application StegForma couvre l'ensemble de ces besoins dans une plateforme web
+unique, sécurisée et adaptée à trois profils (administrateur, formateur,
+participant). Elle regroupe les fonctionnalités suivantes :
+- le catalogue des formations (CRUD, types intra/inter/catalogue/cycle, image et
+  supports) ;
+- la planification des sessions (dates, lieu, salle, formateurs, participants,
+  capacités) ;
+- la gestion des inscriptions et des paiements (en attente, payé, refusé) ;
+- le suivi des présences (formation et cantine, heures, justificatifs) ;
+- les évaluations et les indicateurs (KPI de satisfaction, qualité, participation) ;
+- la génération des certificats (PDF, numéro unique, QR code, signature) ;
+- la gestion des documents signés (convention de formation, contrat de formateur) ;
+- les notifications in-app et par e-mail ;
+- un assistant d'intelligence artificielle (chatbot, résumés par RAG, génération
+  de textes).
+
+1.3 OBJECTIFS DU PROJET
+Objectifs principaux : centraliser la gestion de l'ensemble du dispositif de
+formation et intégrer un assistant d'intelligence artificielle exploitable par
+les trois profils d'utilisateurs.
+
+Objectifs fonctionnels :
+- Gérer le catalogue des formations (CRUD, types intra/inter/catalogue/cycle,
+  supports et image de couverture).
+- Planifier les sessions (dates, lieu, salle, formateurs, participants, capacités).
+- Gérer les inscriptions et paiements (en attente, payé, refusé).
+- Enregistrer les présences (formation et cantine, heures, justificatifs).
+- Collecter les évaluations et calculer les KPI.
+- Générer les certificats PDF avec numéro unique, QR code et signature.
+- Gérer les documents signés (convention, contrat, certificat) multi-rôles.
+- Diffuser des notifications in-app et par e-mail.
+- Fournir un tableau de bord et une recherche globale.
+
+Objectifs liés à l'IA :
+- Assistant conversationnel (chatbot) répondant aux questions et, pour
+  l'administrateur, exécutant des actions en langage naturel.
+- Moteur documentaire RAG pour résumer le contenu réel des supports et répondre
+  avec citations et niveau de confiance.
+- Génération assistée du texte des certificats et des comptes-rendus de session.
+
+1.4 ÉTUDE DE L'EXISTANT
+La première étape a consisté à inventorier les pratiques et données existantes.
+L'essentiel reposait sur : un fichier Excel du personnel et des besoins de
+formation, des documents Word pour les programmes et conventions, des listes de
+présence papier signées en fin de session et des certificats PDF produits au cas
+par cas.
+
+Limites structurelles : absence de base de données centralisée, absence de lien
+entre inscrits et sessions, impossible de suivre un paiement en temps réel,
+aucune traçabilité électronique des signatures, difficulté à consolider les
+indicateurs de pilotage. Ces constats justifient pleinement StegForma.
+
+CONCLUSION DU CHAPITRE 1
+Ce chapitre a posé les bases du projet : organisme d'accueil, problématique et
+objectifs. L'étude de l'existant a montré les limites des outils actuels et la
+nécessité d'une solution intégrée.
+
+
+========================================================================
+CHAPITRE 2 — PROCESSUS MÉTHODOLOGIQUE
+========================================================================
+
+INTRODUCTION
+Pour la réussite du projet, nous avons adopté la méthodologie agile Scrum, qui
+organise le travail en itérations courtes (sprints) et assure un suivi continu.
+
+2.1 MÉTHODOLOGIE ADOPTÉE : SCRUM
+Scrum est une méthode agile reposant sur un développement itératif et
+incrémental, favorisant l'implication du client et l'adaptation aux évolutions.
+
+Rôles :
+- Product Owner : représente la Direction de la Formation et définit les besoins.
+- Scrum Master : facilite le travail de l'équipe et veille à la méthode.
+- Équipe de développement : réalise les fonctionnalités de chaque sprint.
+
+Artéfacts : Product Backlog, Sprint Backlog et Sprint Burn-Down Chart.
+
+Figure : le processus de la méthodologie Scrum (image « Scrum.png » à insérer).
+
+2.2 GESTION DU PROJET AVEC SCRUM
+Extrait du backlog (user stories par sprint et priorité) :
+1. Auth. et comptes — inscription, connexion JWT, profil, approbation — Élevé.
+2. Catalogue — CRUD formations, image et supports, types — Élevé.
+3. Sessions — planification, affectation formateurs/participants, documents — Élevé.
+4. Inscriptions — inscription, suivi et validation des paiements — Élevé.
+5. Présences — pointage par date (formation et cantine), justificatifs — Moyen.
+6. Évaluations et KPI — grille et indicateurs (cabinet, formateur, satisfaction) — Moyen.
+7. Certificats — PDF avec numéro, QR code, signature électronique — Moyen.
+8. Documents signés — convention et contrat, signature multi-rôles — Moyen.
+9. Notifications — in-app et e-mail — Moyen.
+10. Assistant IA — chatbot d'action et assistant RAG — Moyen.
+
+2.3 ENVIRONNEMENT DE TRAVAIL
+Matériel : PC portable (Core i7, 16 Go de RAM, Windows 11).
+Logiciel :
+- Visual Studio Code (éditeur multi-langages).
+- React 19 + TanStack Start (frontend, routage par fichiers, requêtes typées).
+- Tailwind CSS v4 + shadcn/ui (design system).
+- NestJS + TypeORM (backend, API REST modulaire, entités).
+- MySQL (base de données relationnelle).
+- JWT + bcrypt (authentification et hachage).
+- PDFKit + pdf-parse (génération PDF et extraction de texte).
+- @xenova/transformers (embeddings locaux pour le RAG).
+- Ollama (Gemma 3 4B) / Groq (modèle de langage de l'assistant).
+- k6 (tests de charge).
+
+CONCLUSION DU CHAPITRE 2
+Le processus Scrum a permis de structurer efficacement le développement.
+
+
+========================================================================
+CHAPITRE 3 — ANALYSE ET SPÉCIFICATION DES BESOINS
+========================================================================
+
+INTRODUCTION
+Ce chapitre identifie les acteurs, modélise les besoins fonctionnels et non
+fonctionnels à l'aide de diagrammes UML et formalise les spécifications qui
+guideront la réalisation.
+
+3.1 IDENTIFICATION DES ACTEURS
+Trois profils, conformément au contrôle d'accès basé sur les rôles (RBAC) :
+- Administrateur : gère catalogue, sessions, comptes, inscriptions, paiements ;
+  configure évaluations et KPI ; génère certificats et documents ; utilise
+  l'assistant IA d'action.
+- Formateur : consulte ses sessions, assure le suivi pédagogique, signe les
+  contrats, complète les supports.
+- Participant : consulte le catalogue, s'inscrit, suit ses paiements, consulte
+  ses formations et certificats, remplit l'évaluation, interagit avec l'IA.
+
+3.2 BESOINS FONCTIONNELS
+AF-01 Authentification : connexion sécurisée (e-mail / identifiant STEG), JWT et
+       jeton de rafraîchissement, inscription soumise à approbation.
+AF-02 Formation : CRUD, types (intra/inter/catalogue/cycle), image et supports,
+       clonage.
+AF-03 Session : planification, affectation formateurs/participants, documents,
+       clôture.
+AF-04 Inscription : inscription à une session, statut de paiement (en attente,
+       payé, refusé), validation/refus par l'administrateur.
+AF-05 Présence : pointage par date, statut formation et cantine, heures,
+       justification et justificatif.
+AF-06 Évaluation : grille multi-critères et verrouillage anti-doublon.
+AF-07 KPI : taux cabinet, formateur, évaluation, satisfaction, participation,
+       réussite, avec seuils.
+AF-08 Certificat : PDF A4 paysage (numéro unique, QR code), signature
+       électronique, envoi et téléchargement.
+AF-09 Documents signés : convention de formation et contrat de formateur,
+       signature multi-rôles.
+AF-10 Notification : notifications in-app et e-mails transactionnels.
+AF-11 Assistant IA : chatbot par rôle, assistant d'action, résumés (RAG),
+       texte de certificat.
+AF-12 Recherche : recherche globale multi-entités (palette de commandes).
+
+3.3 BESOINS NON FONCTIONNELS
+- Sécurité : mots de passe hachés (bcrypt) ; jeton d'accès 15 min et refresh
+  7 jours ; routes protégées par rôle ; validation stricte des entrées.
+- Performance : réponse API < 500 ms ; certificat PDF en quelques secondes.
+- Maintenabilité : TypeScript de bout en bout ; backend modulaire NestJS ;
+  journalisation des appels IA.
+
+3.4 MODÉLISATION UML
+Diagramme de séquence — Authentification :
+Participant -> Frontend (login, mdp) -> API (POST /api/auth/login) ->
+bcrypt.compare -> JWT sign (access 15 min) -> hash(refresh) + lastLogin ->
+retour tokens + profil -> redirection selon rôle.
+
+Diagramme de séquence — Assistant IA (RAG) :
+Participant -> API/AiService (question) -> RAG+Embeddings (buildContext) ->
+chunks + embedding requête -> top-k chunks + sources -> prompt (contexte + JSON)
+-> LLM -> réponse + sources + confiance -> réponse citée.
+
+3.5 SPÉCIFICATION DES INTERFACES
+Maquettes principales (à insérer sous forme de figures) :
+Figure 1 : page d'accueil et catalogue des formations.
+Figure 2 : page de connexion.
+Figure 3 : portail participant (mes formations, mes certificats, calendrier,
+           profil).
+Figure 4 : portail formateur (tableau de bord, sessions, calendrier, signature).
+Figure 5 : console d'administration (dashboard, formations, sessions,
+           participants, formateurs, paiements, évaluations, KPI, documents,
+           approbations, paramètres).
+Figure 6 : assistant IA (chatbot et assistant contextuel de formation).
+
+CONCLUSION DU CHAPITRE 3
+L'analyse et la spécification des besoins ont permis de formaliser l'ensemble des
+exigences de StegForma.
+
+
+========================================================================
+CHAPITRE 4 — RÉALISATION
+========================================================================
+
+INTRODUCTION
+Ce chapitre présente la réalisation concrète de la plateforme à travers les
+sprints, illustrée par des captures d'écran, ainsi que le module d'IA.
+
+4.1 ARCHITECTURE DE LA SOLUTION
+Architecture trois tiers : navigateur -> application TanStack Start (SSR) -> API
+REST NestJS -> base MySQL. Le backend communique aussi avec un serveur SMTP
+(e-mails) et un service d'IA (modèle local Ollama ou API Groq).
+
+4.2 RÉALISATION DES SPRINTS
+Sprint 1 — Authentification et comptes : connexion par e-mail, nom d'utilisateur
+ou identifiant STEG ; mot de passe vérifié (bcrypt) ; jeton d'accès court + jeton
+de rafraîchissement persisté haché ; journalisation de la dernière connexion. Les
+nouveaux comptes sont créés en attente d'approbation ; l'administrateur valide ou
+rejette, un e-mail de bienvenue est envoyé.
+
+Sprint 2 — Catalogue : CRUD complet des formations (titre, description,
+objectifs, prérequis, catégorie, tarif, durée, capacité, image, supports) et
+quatre types (intra, inter, catalogue, cycle).
+
+Sprint 3 — Sessions : dates, heures, lieu, salle, capacité, documents associés
+(CV formateur, facture, bon de commande, contrat) ; affectation de formateurs et
+de participants (relations plusieurs-à-plusieurs) ; clôture de session.
+
+Sprint 4 — Inscriptions et paiements : inscription liant participant et session,
+montant et statut de paiement (en attente, payé, refusé) ; confirmation/refus par
+l'administrateur ; suivi côté participant.
+
+Sprint 5 — Présences : pointage par session et par date, deux statuts
+indépendants (formation et cantine), heures d'arrivée/départ, justificatif.
+
+Sprint 6 — Évaluations et KPI : grille distinguant critères cabinet (objectif et
+clarté, contenu, utilité, rythme, confort, équipements, supports) et critères
+formateur (maîtrise, clarté, animation, capacité de réponse), notés de 1 à 4,
+plus satisfaction globale, points forts, points à améliorer et recommandation ;
+contrôle anti-doublon. KPI calculés : taux cabinet, taux formateur, taux
+d'évaluation (moyenne des deux), taux de satisfaction (note >= 4), taux de
+participation. Seuils : >= 70 % performant, 40–69 % à améliorer, < 40 % non
+retenu.
+
+Sprint 7 — Certificats : PDF A4 paysage (PDFKit) avec mise en page soignée,
+numéro unique, QR code et signatures électroniques (participant et responsable) ;
+enregistrement dans les documents signés et notification au participant.
+
+Sprint 8 — Documents signés : convention de formation et contrat de formateur,
+signature multi-rôles (participant, formateur, administrateur) avec horodatage ;
+saisie de la signature via un composant dédié.
+
+Sprint 9 — Notifications et e-mails : notifications in-app et e-mails SMTP
+(inscription reçue, approbation, identifiants, désactivation) ; en l'absence de
+SMTP, journalisation des e-mails.
+
+Sprint 10 — Assistant IA : voir section suivante.
+
+4.3 MODULE D'INTELLIGENCE ARTIFICIELLE
+4.3.1 Assistant conversationnel (chatbot à actions)
+Le chatbot s'adapte au rôle. Pour un participant ou un formateur, il répond en
+s'appuyant sur un contexte extrait de la base (formations, sessions, inscriptions
+personnelles, évaluations). Pour un administrateur, il exécute des actions en
+langage naturel via une détection d'intention : création de formation, session,
+participant ou formateur ; validation ou refus d'un paiement ; suppression
+(formation, session, participant, formateur) ; désactivation d'un compte. La
+détection combine des expressions régulières et un appel au modèle renvoyant un
+JSON décrivant l'action et ses paramètres.
+
+4.3.2 Moteur documentaire RAG
+Le RAG résume le contenu réel des supports et répond aux questions à partir des
+documents. Chaîne de traitement : découpage des PDF en fragments (1200 caractères,
+chevauchement 150) -> vectorisation locale (E5 multilingue, ONNX) -> similarité
+cosinus (top-k, seuil 0,3) -> injection des meilleurs fragments dans le prompt ->
+génération encadrée (réponse en français, fondée uniquement sur le contexte,
+citations au format « (fichier.pdf, page N) », déclaration d'absence plutôt
+qu'invention) -> sortie JSON (reponse, trouve, confiance, sources).
+
+Robustesse et performance : cache des fragments vectorisés (mémoire + disque),
+cache des résumés de formation (24 h, invalidé si les documents changent), repli
+par mots-clés si les embeddings sont indisponibles, repli hors-ligne restituant
+les extraits les plus pertinents si le modèle est injoignable. L'accès est
+contrôlé : un participant ne peut interroger que les formations auxquelles il est
+inscrit.
+
+4.3.3 Génération assistée de textes
+Le module produit un résumé de session à partir de données structurées (taux de
+présence, notes moyennes, points forts, axes d'amélioration, commentaires) et le
+texte d'un certificat au format JSON strict (titre, corps, mention, compétences).
+Un texte de repli déterministe est prévu si le modèle est indisponible. Le
+fournisseur est configurable : modèle local (Ollama, Gemma 3 4B) par défaut ou
+API cloud (Groq). Les appels intègrent un nouvel essai à délai croissant.
+
+4.4 SÉCURITÉ ET CONTRÔLE D'ACCÈS
+Hachage des mots de passe (bcrypt), jetons JWT courts avec rafraîchissement,
+guards NestJS protégeant les routes par rôle, validation/filtrage des entrées
+(ValidationPipe global), restriction d'accès aux fichiers et contrôle du type et
+de la taille des téléversements.
+
+4.5 TESTS ET QUALITÉ
+Tests de charge avec k6 pour évaluer l'API en charge. Code typé de bout en bout
+(TypeScript), backend modularisé, journalisation des appels IA (durée, modèle,
+jetons) et des erreurs.
+
+CONCLUSION DU CHAPITRE 4
+StegForma couvre l'ensemble du cycle de vie d'une formation et intègre un module
+d'IA combinant assistant conversationnel à actions, moteur RAG avec citations et
+générateur de textes, avec un fonctionnement dégradé robuste.
+
+
+========================================================================
+CONCLUSION GÉNÉRALE
+========================================================================
+Ce stage d'été à la STEG m'a permis de participer à la conception et au
+développement d'une plateforme complète de gestion des formations, alliant
+gestion opérationnelle (catalogue, sessions, inscriptions, présence, évaluation,
+certification) et intelligence artificielle appliquée à l'exploitation
+documentaire.
+
+Compétences techniques mises en pratique :
+- Ingénierie documentaire : extraction, découpage et vectorisation de PDF, moteur
+  de recherche sémantique.
+- Intégration de modèles de langage : prompts encadrés, sorties JSON structurées,
+  citations de sources, gestion des erreurs et repli hors-ligne.
+- Développement full-stack : React/TanStack (frontend), NestJS/TypeORM/MySQL
+  (backend).
+- Sécurité applicative : authentification JWT, contrôle d'accès par rôle et
+  validation des entrées.
+
+Sur le plan méthodologique, j'ai appris à livrer des fonctionnalités utilisables
+même lorsqu'un service externe (le modèle de langage) est indisponible, en
+concevant systématiquement des mécanismes de repli.
+
+Perspectives d'évolution :
+- Enrichir le RAG (recherche hybride mots-clés + vecteurs, base vectorielle
+  dédiée, documents non PDF).
+- Ajouter l'explicabilité des recommandations et des tableaux de bord prédictifs.
+- Renforcer les actions pilotées par l'assistant (validation groupée, relances
+  automatiques).
+- Déployer en production avec conteneurisation (Docker) et authentification SSO
+  au niveau de la STEG.
+- Générer des documents officiels supplémentaires (attestations de paiement,
+  rapports de session signés).
+
+
+========================================================================
+BIBLIOGRAPHIE ET NETOGRAPHIE
+========================================================================
+- Schwaber, K., & Sutherland, J. (2020). The Scrum Guide. https://scrumguides.org
+- Documentation officielle NestJS — https://docs.nestjs.com
+- Documentation officielle TypeORM — https://typeorm.io
+- Documentation officielle React — https://react.dev
+- Documentation TanStack (Start, Router, Query) — https://tanstack.com
+- Documentation Tailwind CSS — https://tailwindcss.com
+- Documentation shadcn/ui — https://ui.shadcn.com
+- RFC 7519 — JSON Web Token (JWT) — https://datatracker.ietf.org/doc/html/rfc7519
+- Documentation MySQL — https://dev.mysql.com/doc/
+- Documentation PDFKit — https://pdfkit.org
+- Transformers.js (@xenova/transformers) — https://github.com/huggingface/transformers.js
+- Wang, L. et al. (2022). Text Embeddings by Weakly-Supervised Contrastive
+  Pre-training (E5).
+- Documentation Ollama — https://ollama.com
+- Documentation de l'API Groq — https://console.groq.com/docs
+- Grafana k6 — https://k6.io/docs/
+- Sommerville, I. (2015). Software Engineering. Pearson.
+- Site institutionnel de la STEG — https://www.steg.com.tn
+
+========================================================================

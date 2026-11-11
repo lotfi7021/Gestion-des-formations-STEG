@@ -34,7 +34,7 @@ export class User {
   @Column({ type: 'varchar', length: 255, unique: true })
   email: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'varchar', length: 255, select: false })
   password: string;
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.PARTICIPANT })
@@ -46,7 +46,7 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   lastLogin: Date;
 
-  @Column({ type: 'varchar', length: 500, nullable: true })
+  @Column({ type: 'varchar', length: 500, nullable: true, select: false })
   refreshToken: string;
 
   // --- Profile (common) ---

@@ -15,6 +15,7 @@ import { PageShell } from "@/components/page-shell";
 import { useAuth } from "@/contexts/auth-context";
 import { getFormations } from "@/lib/api/formations";
 import { API_URL } from "@/lib/api/client";
+import { queryKeys } from "@/lib/api/query-keys";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -38,7 +39,7 @@ export const Route = createFileRoute("/")({
 function Index() {
   const { isAuthenticated, user } = useAuth();
   const { data: formations, isLoading } = useQuery({
-    queryKey: ["formations"],
+    queryKey: queryKeys.formations,
     queryFn: () => getFormations(),
   });
   const featured = formations?.slice(0, 3) || [];

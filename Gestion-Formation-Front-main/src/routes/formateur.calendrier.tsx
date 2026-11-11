@@ -11,11 +11,12 @@ import {
   ChevronRight,
   ArrowUpRight,
 } from "lucide-react";
-import { ProtectedRoute } from "@/components/protected-route";
 import { PageShell } from "@/components/page-shell";
 import { getMySessions, type Session } from "@/lib/api/sessions";
 import { getFormation } from "@/lib/api/formations";
+import { queryKeys } from "@/lib/api/query-keys";
 import { API_URL } from "@/lib/api/client";
+import { requireAuth } from "@/lib/route-auth";
 import { DayPicker, DayButton, type DayButtonProps } from "react-day-picker";
 import { fr } from "date-fns/locale";
 import { format } from "date-fns";
@@ -36,16 +37,15 @@ const SESSION_COLORS = [
 ];
 
 export const Route = createFileRoute("/formateur/calendrier")({
-  component: () => (
-    <ProtectedRoute requiredRole="formateur">
-      <FormateurCalendrier />
-    </ProtectedRoute>
-  ),
+  beforeLoad: () => {
+    requireAuth(["formateur"]);
+  },
+  component: FormateurCalendrier,
 });
 
 function FormateurCalendrier() {
   const { data: sessions, isLoading } = useQuery({
-    queryKey: ["my-sessions"],
+    queryKey: queryKeys.mySessions(),
     queryFn: () => getMySessions(),
   });
 
@@ -53,7 +53,7 @@ function FormateurCalendrier() {
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const { data: selectedFormation } = useQuery({
-    queryKey: ["formation", selectedSession?.formation?.id],
+    queryKey: queryKeys.formation(selectedSession?.formation?.id),
     queryFn: () => getFormation(selectedSession!.formation!.id),
     enabled: !!selectedSession?.formation?.id,
   });
@@ -103,10 +103,10 @@ function FormateurCalendrier() {
       const last = new Date(end.getFullYear(), end.getMonth(), end.getDate());
       // Garde-fou : 60 jours max par session pour éviter une boucle infinie
       for (let i = 0; i < 60 && cur <= last; i++) {
-        map.set(
-          `${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`,
-          { color: c.color, bg: c.bg },
-        );
+        map.set(`${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`, {
+          color: c.color,
+          bg: c.bg,
+        });
         cur.setDate(cur.getDate() + 1);
       }
     });
@@ -211,13 +211,12 @@ function FormateurCalendrier() {
               {sessions && sessions.length > 0 && (
                 <div className="mt-2 space-y-1 px-1">
                   {sessions.slice(0, SESSION_COLORS.length).map((s: Session, idx: number) => (
-                    <p
-                      key={s.id}
-                      className="flex items-center gap-2 text-xs text-muted-foreground"
-                    >
+                    <p key={s.id} className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span
                         className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: SESSION_COLORS[idx % SESSION_COLORS.length].color }}
+                        style={{
+                          backgroundColor: SESSION_COLORS[idx % SESSION_COLORS.length].color,
+                        }}
                         aria-hidden
                       />
                       <span className="truncate">

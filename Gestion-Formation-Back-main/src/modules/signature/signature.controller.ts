@@ -55,8 +55,8 @@ export class SignatureController {
 
   @Delete(':id')
   @UseGuards(ManualJwtGuard)
-  deleteSignature(@Param('id') id: string) {
-    return this.signatureService.deleteSignature(id);
+  deleteSignature(@Param('id') id: string, @Req() req: any) {
+    return this.signatureService.deleteSignature(id, req.user);
   }
 
   @Post('generate-convention/:sessionId/:participantId')
@@ -93,20 +93,20 @@ export class SignatureController {
 
   @Get('documents/session/:sessionId')
   @UseGuards(ManualJwtGuard)
-  getDocumentsBySession(@Param('sessionId') sessionId: string) {
-    return this.signatureService.getDocumentsSignesBySession(sessionId);
+  getDocumentsBySession(@Param('sessionId') sessionId: string, @Req() req: any) {
+    return this.signatureService.getDocumentsSignesBySession(sessionId, req.user);
   }
 
   @Get('documents/:id')
   @UseGuards(ManualJwtGuard)
-  getDocument(@Param('id') id: string) {
-    return this.signatureService.getDocumentSigne(id);
+  getDocument(@Param('id') id: string, @Req() req: any) {
+    return this.signatureService.getDocumentSigne(id, req.user);
   }
 
   @Get('documents/:id/download')
   @UseGuards(ManualJwtGuard)
-  async downloadDocument(@Param('id') id: string, @Res() res: Response) {
-    const doc = await this.signatureService.getDocumentSigne(id);
+  async downloadDocument(@Param('id') id: string, @Req() req: any, @Res() res: Response) {
+    const doc = await this.signatureService.getDocumentSigne(id, req.user);
     const filePath = join(__dirname, '..', '..', '..', doc.fileUrl);
     if (!fs.existsSync(filePath)) throw new NotFoundException('Fichier introuvable');
     const sanitized = doc.titre.replace(/[^a-zA-Z0-9]/g, '_');

@@ -21,7 +21,7 @@ export class FormateurController {
 
   @Get()
   @UseGuards(OptionalJwtGuard)
-  async findAll(@Query('all') all?: string) {
+  async findAll(@Query('all') _all?: string) {
     return this.userService.findAllFormateurs();
   }
 

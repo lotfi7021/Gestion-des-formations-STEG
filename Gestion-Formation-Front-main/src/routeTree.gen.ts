@@ -25,6 +25,7 @@ import { Route as FormationsIdRouteImport } from './routes/formations.$id'
 import { Route as FormateurDashboardRouteImport } from './routes/formateur.dashboard'
 import { Route as FormateurCalendrierRouteImport } from './routes/formateur.calendrier'
 import { Route as EvaluationSessionIdRouteImport } from './routes/evaluation.$sessionId'
+import { Route as CheckInTokenRouteImport } from './routes/check-in.$token'
 import { Route as AdminSessionsRouteImport } from './routes/admin.sessions'
 import { Route as AdminParticipantsRouteImport } from './routes/admin.participants'
 import { Route as AdminParametresRouteImport } from './routes/admin.parametres'
@@ -116,6 +117,11 @@ const EvaluationSessionIdRoute = EvaluationSessionIdRouteImport.update({
   path: '/evaluation/$sessionId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CheckInTokenRoute = CheckInTokenRouteImport.update({
+  id: '/check-in/$token',
+  path: '/check-in/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminSessionsRoute = AdminSessionsRouteImport.update({
   id: '/sessions',
   path: '/sessions',
@@ -188,6 +194,7 @@ export interface FileRoutesByFullPath {
   '/admin/parametres': typeof AdminParametresRoute
   '/admin/participants': typeof AdminParticipantsRoute
   '/admin/sessions': typeof AdminSessionsRoute
+  '/check-in/$token': typeof CheckInTokenRoute
   '/evaluation/$sessionId': typeof EvaluationSessionIdRoute
   '/formateur/calendrier': typeof FormateurCalendrierRoute
   '/formateur/dashboard': typeof FormateurDashboardRoute
@@ -215,6 +222,7 @@ export interface FileRoutesByTo {
   '/admin/parametres': typeof AdminParametresRoute
   '/admin/participants': typeof AdminParticipantsRoute
   '/admin/sessions': typeof AdminSessionsRoute
+  '/check-in/$token': typeof CheckInTokenRoute
   '/evaluation/$sessionId': typeof EvaluationSessionIdRoute
   '/formateur/calendrier': typeof FormateurCalendrierRoute
   '/formateur/dashboard': typeof FormateurDashboardRoute
@@ -244,6 +252,7 @@ export interface FileRoutesById {
   '/admin/parametres': typeof AdminParametresRoute
   '/admin/participants': typeof AdminParticipantsRoute
   '/admin/sessions': typeof AdminSessionsRoute
+  '/check-in/$token': typeof CheckInTokenRoute
   '/evaluation/$sessionId': typeof EvaluationSessionIdRoute
   '/formateur/calendrier': typeof FormateurCalendrierRoute
   '/formateur/dashboard': typeof FormateurDashboardRoute
@@ -274,6 +283,7 @@ export interface FileRouteTypes {
     | '/admin/parametres'
     | '/admin/participants'
     | '/admin/sessions'
+    | '/check-in/$token'
     | '/evaluation/$sessionId'
     | '/formateur/calendrier'
     | '/formateur/dashboard'
@@ -301,6 +311,7 @@ export interface FileRouteTypes {
     | '/admin/parametres'
     | '/admin/participants'
     | '/admin/sessions'
+    | '/check-in/$token'
     | '/evaluation/$sessionId'
     | '/formateur/calendrier'
     | '/formateur/dashboard'
@@ -329,6 +340,7 @@ export interface FileRouteTypes {
     | '/admin/parametres'
     | '/admin/participants'
     | '/admin/sessions'
+    | '/check-in/$token'
     | '/evaluation/$sessionId'
     | '/formateur/calendrier'
     | '/formateur/dashboard'
@@ -348,6 +360,7 @@ export interface RootRouteChildren {
   InscriptionRoute: typeof InscriptionRoute
   MesFormationsRoute: typeof MesFormationsRoute
   ProfilRoute: typeof ProfilRoute
+  CheckInTokenRoute: typeof CheckInTokenRoute
   EvaluationSessionIdRoute: typeof EvaluationSessionIdRoute
   FormateurCalendrierRoute: typeof FormateurCalendrierRoute
   FormateurDashboardRoute: typeof FormateurDashboardRoute
@@ -469,6 +482,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EvaluationSessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/check-in/$token': {
+      id: '/check-in/$token'
+      path: '/check-in/$token'
+      fullPath: '/check-in/$token'
+      preLoaderRoute: typeof CheckInTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/sessions': {
       id: '/admin/sessions'
       path: '/sessions'
@@ -583,6 +603,7 @@ const rootRouteChildren: RootRouteChildren = {
   InscriptionRoute: InscriptionRoute,
   MesFormationsRoute: MesFormationsRoute,
   ProfilRoute: ProfilRoute,
+  CheckInTokenRoute: CheckInTokenRoute,
   EvaluationSessionIdRoute: EvaluationSessionIdRoute,
   FormateurCalendrierRoute: FormateurCalendrierRoute,
   FormateurDashboardRoute: FormateurDashboardRoute,

@@ -24,6 +24,7 @@ import { SessionDocumentModule } from './modules/session-document/session-docume
 import { ChatbotModule } from './modules/chatbot/chatbot.module';
 import { SignatureModule } from './modules/signature/signature.module';
 import { AiModule } from './modules/ai/ai.module';
+import { CheckinModule } from './modules/checkin/checkin.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { AiModule } from './modules/ai/ai.module';
     ChatbotModule,
     SignatureModule,
     AiModule,
+    CheckinModule,
   ],
   controllers: [AppController],
   providers: [AppService, SeedService],

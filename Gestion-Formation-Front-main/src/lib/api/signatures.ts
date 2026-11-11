@@ -1,5 +1,5 @@
-import { api } from "./client";
-import { getAccessToken, API_BASE } from "./client";
+import { api, getAuthHeaders } from "./client";
+import { API_BASE } from "./client";
 
 export type Signature = {
   id: string;
@@ -92,9 +92,8 @@ export async function getDocumentSigne(id: string): Promise<DocumentSigne> {
 }
 
 export async function downloadDocumentSigne(id: string): Promise<void> {
-  const token = getAccessToken();
   const res = await fetch(`${API_BASE}/signatures/documents/${id}/download`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: getAuthHeaders(),
   });
   if (!res.ok) throw new Error("Erreur lors du téléchargement");
   const blob = await res.blob();

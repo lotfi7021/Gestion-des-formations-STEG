@@ -17,11 +17,16 @@ import {
   Sparkles,
   Copy,
   X,
+  Mail,
 } from "lucide-react";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/admin-shell";
+import { CertificateTextDialog } from "@/components/admin/certificate-text-dialog";
+import { SessionQrDialog } from "@/components/admin/session-qr-dialog";
 import {
   getSessions,
   createSession,
@@ -30,10 +35,12 @@ import {
   type Session,
 } from "@/lib/api/sessions";
 import { getFormations, type Formation } from "@/lib/api/formations";
-import { API_BASE } from "@/lib/api/client";
+import { API_BASE, getAuthHeaders } from "@/lib/api/client";
 import { getFormateurs } from "@/lib/api/formateurs";
 import { getParticipants as getParticipantsUsers } from "@/lib/api/users";
-import { getParticipants, type Participant } from "@/lib/api/users";
+import { queryKeys } from "@/lib/api/query-keys";
+import { sendSessionConvocations } from "@/lib/api/checkin";
+import { getErrorMessage } from "@/lib/api/errors";
 
 /** Inscrit possible à une session : participant (User) ou employé STEG (User role=employe). */
 type PersonneInscriptible = {
@@ -44,12 +51,8 @@ type PersonneInscriptible = {
 };
 import type { UserRef } from "@/lib/api/types";
 import type { Formateur } from "@/lib/api/formateurs";
-import {
-  generateSessionCertificates,
-  getCertificates,
-  type Certificate,
-} from "@/lib/api/certificates";
-import { generateSessionSummary, generateCertificateText } from "@/lib/api/ai";
+import { generateSessionCertificates, type Certificate } from "@/lib/api/certificates";
+import { generateSessionSummary } from "@/lib/api/ai";
 import { generateConvention, generateContratFormateur } from "@/lib/api/signatures";
 import { Button } from "@/components/ui/button";
 import {
@@ -72,13 +75,21 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { sessionSchema } from "@/lib/validations";
+import { sessionSchema, type SessionData } from "@/lib/validations";
 
 export const Route = createFileRoute("/admin/sessions")({
   component: AdminSessions,
@@ -87,9 +98,8 @@ export const Route = createFileRoute("/admin/sessions")({
 const months = ["JAN", "FÉV", "MAR", "AVR", "MAI", "JUI", "JUI", "AOÛ", "SEP", "OCT", "NOV", "DÉC"];
 
 async function downloadPresenceList(sessionId: string, titre?: string) {
-  const token = localStorage.getItem("access_token");
   const res = await fetch(`${API_BASE}/sessions/${sessionId}/presence-list`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: getAuthHeaders(),
   });
   if (!res.ok) {
     toast.error("Erreur lors du téléchargement");
@@ -119,9 +129,13 @@ function AdminSessions() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const form = useForm<SessionData>({
+    resolver: zodResolver(sessionSchema),
+    defaultValues: emptyForm,
+  });
+  const participantIds = form.watch("participantIds") ?? [];
+  const formateurIds = form.watch("formateurIds") ?? [];
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [participantSearch, setParticipantSearch] = useState("");
   const [search, setSearch] = useState("");
@@ -170,62 +184,10 @@ function AdminSessions() {
     });
   };
 
-  // ─── État texte de certificat IA ──────────────────────────────────────────
-  const [certTextDialog, setCertTextDialog] = useState<{
-    open: boolean;
-    sessionId: string;
-    certificateId: string;
-    participantName: string;
-  } | null>(null);
-  const [certTextLoading, setCertTextLoading] = useState(false);
-  const [certTextValue, setCertTextValue] = useState("");
-  const [certTextIsFallback, setCertTextIsFallback] = useState(false);
-
-  // Certificats chargés pour la session active (chargé à la demande)
-  const { data: allCertificates } = useQuery({
-    queryKey: ["certificates"],
-    queryFn: getCertificates,
-    enabled: !!certTextDialog,
-  });
-
-  const openCertTextDialog = (sessionId: string) => {
-    setCertTextDialog({ open: true, sessionId, certificateId: "", participantName: "" });
-    setCertTextValue("");
-    setCertTextIsFallback(false);
-  };
-
-  const closeCertTextDialog = () => {
-    setCertTextDialog(null);
-    setCertTextValue("");
-  };
-
-  const handleGenerateCertText = async (certId: string) => {
-    if (!certId) return;
-    setCertTextLoading(true);
-    try {
-      const result = await generateCertificateText(certId);
-      setCertTextValue(result.text);
-      setCertTextIsFallback(result.isFallback);
-      if (result.isFallback) {
-        toast.warning("Texte généré en mode fallback (IA indisponible)");
-      } else {
-        toast.success("Texte de certificat généré avec succès");
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur lors de la génération");
-    } finally {
-      setCertTextLoading(false);
-    }
-  };
-
-  const copyCertText = () => {
-    if (certTextValue) {
-      navigator.clipboard.writeText(certTextValue).then(() => toast.success("Texte copié"));
-    }
-  };
+  const [certTextSessionId, setCertTextSessionId] = useState<string | null>(null);
 
   const { data: sessions, isLoading } = useQuery({
-    queryKey: ["sessions"],
+    queryKey: queryKeys.sessions,
     queryFn: () => getSessions(),
   });
   const filtered = (sessions || []).filter((s) => {
@@ -238,16 +200,16 @@ function AdminSessions() {
     );
   });
   const { data: formations } = useQuery({
-    queryKey: ["formations"],
+    queryKey: queryKeys.formations,
     queryFn: () => getFormations(),
   });
   const { data: formateurs } = useQuery({
-    queryKey: ["formateurs"],
+    queryKey: queryKeys.formateurs,
     queryFn: () => getFormateurs(),
   });
   // Liste unifiée : employés STEG (role=employe) + participants (role=participant)
   const { data: participants } = useQuery({
-    queryKey: ["participants", "users"],
+    queryKey: queryKeys.participantsForSelect,
     queryFn: async (): Promise<PersonneInscriptible[]> => {
       const users = await getParticipantsUsers();
       return [...users];
@@ -256,19 +218,20 @@ function AdminSessions() {
 
   const saveMutation = useMutation({
     mutationFn: () => {
+      const values = form.getValues();
       const payload = {
-        ...form,
-        capaciteMax: form.capaciteMax === "" ? undefined : Number(form.capaciteMax),
-        participantIds: form.participantIds.length ? form.participantIds : undefined,
-        formateurIds: form.formateurIds.length ? form.formateurIds : undefined,
+        ...values,
+        capaciteMax: values.capaciteMax === "" ? undefined : Number(values.capaciteMax),
+        participantIds: values.participantIds?.length ? values.participantIds : undefined,
+        formateurIds: values.formateurIds?.length ? values.formateurIds : undefined,
       };
       return editingId ? updateSession(editingId, payload) : createSession(payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
       setOpen(false);
       setEditingId(null);
-      setForm(emptyForm);
+      form.reset(emptyForm);
       toast.success(editingId ? "Session modifiée" : "Session créée");
     },
     onError: () => toast.error("Erreur lors de l'enregistrement"),
@@ -277,12 +240,12 @@ function AdminSessions() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteSession(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
       setDeleteId(null);
       toast.success("Session supprimée");
     },
     onError: () => {
-      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
       setDeleteId(null);
     },
   });
@@ -291,7 +254,7 @@ function AdminSessions() {
     mutationFn: (sessionId: string) => generateSessionCertificates(sessionId),
     onSuccess: (data: unknown[]) => {
       toast.success(`${data.length} certificat(s) généré(s) avec succès`);
-      queryClient.invalidateQueries({ queryKey: ["documents-signes"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.documentsSignes });
     },
     onError: (err: Error) => {
       toast.error(
@@ -305,7 +268,7 @@ function AdminSessions() {
       generateConvention(sessionId, participantId),
     onSuccess: () => {
       toast.success("Convention générée");
-      queryClient.invalidateQueries({ queryKey: ["documents-signes"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.documentsSignes });
     },
     onError: (err: Error) => toast.error(err.message || "Erreur"),
   });
@@ -315,7 +278,7 @@ function AdminSessions() {
       generateContratFormateur(sessionId, formateurId),
     onSuccess: () => {
       toast.success("Contrat formateur généré");
-      queryClient.invalidateQueries({ queryKey: ["documents-signes"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.documentsSignes });
     },
     onError: (err: Error) => toast.error(err.message || "Erreur"),
   });
@@ -323,7 +286,7 @@ function AdminSessions() {
   const completeMutation = useMutation({
     mutationFn: (sessionId: string) => updateSession(sessionId, { isCompleted: true }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
       toast.success("Session marquée comme terminée");
     },
     onError: (err: Error) => {
@@ -331,15 +294,28 @@ function AdminSessions() {
     },
   });
 
+  const convocationMutation = useMutation({
+    mutationFn: (sessionId: string) => sendSessionConvocations(sessionId),
+    onSuccess: (result) => {
+      toast.success(`${result.sent} convocation(s) envoyée(s)`);
+      if (result.failed > 0) {
+        toast.error(`${result.failed} envoi(s) ont échoué`);
+      }
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Erreur lors de l'envoi des convocations"));
+    },
+  });
+
   const openCreate = () => {
     setEditingId(null);
-    setForm(emptyForm);
+    form.reset(emptyForm);
     setOpen(true);
   };
 
   const openEdit = (s: Session) => {
     setEditingId(s.id);
-    setForm({
+    form.reset({
       dateDebut: s.dateDebut ? new Date(s.dateDebut).toISOString().slice(0, 16) : "",
       dateFin: s.dateFin ? new Date(s.dateFin).toISOString().slice(0, 16) : "",
       lieu: s.lieu || "",
@@ -352,20 +328,20 @@ function AdminSessions() {
   };
 
   const toggleParticipant = (id: string) => {
-    setForm((f) => ({
-      ...f,
-      participantIds: f.participantIds.includes(id)
-        ? f.participantIds.filter((x) => x !== id)
-        : [...f.participantIds, id],
-    }));
+    form.setValue(
+      "participantIds",
+      participantIds.includes(id)
+        ? participantIds.filter((x) => x !== id)
+        : [...participantIds, id],
+      { shouldValidate: true },
+    );
   };
   const toggleFormateur = (id: string) => {
-    setForm((f) => ({
-      ...f,
-      formateurIds: f.formateurIds.includes(id)
-        ? f.formateurIds.filter((x) => x !== id)
-        : [...f.formateurIds, id],
-    }));
+    form.setValue(
+      "formateurIds",
+      formateurIds.includes(id) ? formateurIds.filter((x) => x !== id) : [...formateurIds, id],
+      { shouldValidate: true },
+    );
   };
 
   return (
@@ -379,7 +355,7 @@ function AdminSessions() {
             setOpen(v);
             if (!v) {
               setEditingId(null);
-              setForm(emptyForm);
+              form.reset(emptyForm);
             }
           }}
         >
@@ -392,154 +368,168 @@ function AdminSessions() {
             <DialogHeader>
               <DialogTitle>{editingId ? "Modifier la session" : "Nouvelle session"}</DialogTitle>
             </DialogHeader>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                setFormErrors({});
-                const r = sessionSchema.safeParse(form);
-                if (!r.success) {
-                  const fe: Record<string, string> = {};
-                  r.error.issues.forEach((i) => {
-                    const f = i.path[0] as string;
-                    if (!fe[f]) fe[f] = i.message;
-                  });
-                  setFormErrors(fe);
-                  return;
-                }
-                saveMutation.mutate();
-              }}
-              className="space-y-4"
-            >
-              {formErrors.form && <p className="text-xs text-destructive">{formErrors.form}</p>}
-              <div>
-                <Label>Formation</Label>
-                <Select
-                  value={form.formationId}
-                  onValueChange={(v) => setForm({ ...form, formationId: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner une formation" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {formations?.map((f: Formation) => (
-                      <SelectItem key={f.id} value={f.id}>
-                        {f.titre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Date début</Label>
-                  <Input
-                    type="datetime-local"
-                    value={form.dateDebut}
-                    onChange={(e) => setForm({ ...form, dateDebut: e.target.value })}
-                  />
-                  {formErrors.dateDebut && (
-                    <p className="mt-1 text-xs text-destructive">{formErrors.dateDebut}</p>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(() => saveMutation.mutate())} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="formationId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Formation</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner une formation" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {formations?.map((f: Formation) => (
+                            <SelectItem key={f.id} value={f.id}>
+                              {f.titre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
                   )}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="dateDebut"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Date début</FormLabel>
+                        <FormControl>
+                          <Input type="datetime-local" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="dateFin"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Date fin</FormLabel>
+                        <FormControl>
+                          <Input type="datetime-local" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="lieu"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Lieu</FormLabel>
+                      <FormControl>
+                        <Input placeholder="ex : Paris 11e — Salle 3B" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="capaciteMax"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Capacité max</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="1"
+                          placeholder="Nombre de places (laisser vide = illimité)"
+                          value={field.value ?? ""}
+                          onChange={(e) => field.onChange(e.target.value)}
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          ref={field.ref}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div>
+                  <Label>Participants</Label>
+                  <div className="relative mb-1">
+                    <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      placeholder="Rechercher par nom ou identifiant…"
+                      value={participantSearch}
+                      onChange={(e) => setParticipantSearch(e.target.value)}
+                      className="w-full rounded-md border border-border bg-background py-1.5 pl-7 pr-2 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
+                    />
+                  </div>
+                  <div className="max-h-40 overflow-y-auto space-y-1 rounded-md border p-2">
+                    {(participants || [])
+                      .filter(
+                        (p: PersonneInscriptible) =>
+                          !participantSearch ||
+                          `${p.nom} ${p.prenom} ${p.identifiant || ""}`
+                            .toLowerCase()
+                            .includes(participantSearch.toLowerCase()),
+                      )
+                      .map((p: PersonneInscriptible) => (
+                        <label
+                          key={p.id}
+                          className="flex items-center gap-2 text-sm cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={participantIds.includes(p.id)}
+                            onChange={() => toggleParticipant(p.id)}
+                            className="rounded"
+                          />
+                          {p.identifiant && (
+                            <span className="font-mono text-xs text-muted-foreground">
+                              {p.identifiant}
+                            </span>
+                          )}
+                          <span>
+                            {p.prenom} {p.nom}
+                          </span>
+                        </label>
+                      ))}
+                    {(!participants || participants.length === 0) && (
+                      <p className="text-xs text-muted-foreground py-2 text-center">
+                        Aucun participant disponible
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <div>
-                  <Label>Date fin</Label>
-                  <Input
-                    type="datetime-local"
-                    value={form.dateFin}
-                    onChange={(e) => setForm({ ...form, dateFin: e.target.value })}
-                  />
-                  {formErrors.dateFin && (
-                    <p className="mt-1 text-xs text-destructive">{formErrors.dateFin}</p>
-                  )}
-                </div>
-              </div>
-              <div>
-                <Label>Lieu</Label>
-                <Input
-                  placeholder="ex : Paris 11e — Salle 3B"
-                  value={form.lieu}
-                  onChange={(e) => setForm({ ...form, lieu: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>Capacité max</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  placeholder="Nombre de places (laisser vide = illimité)"
-                  value={form.capaciteMax}
-                  onChange={(e) => setForm({ ...form, capaciteMax: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>Participants</Label>
-                <div className="relative mb-1">
-                  <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    placeholder="Rechercher par nom ou identifiant…"
-                    value={participantSearch}
-                    onChange={(e) => setParticipantSearch(e.target.value)}
-                    className="w-full rounded-md border border-border bg-background py-1.5 pl-7 pr-2 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
-                  />
-                </div>
-                <div className="max-h-40 overflow-y-auto space-y-1 rounded-md border p-2">
-                  {(participants || [])
-                    .filter(
-                      (p: PersonneInscriptible) =>
-                        !participantSearch ||
-                        `${p.nom} ${p.prenom} ${p.identifiant || ""}`
-                          .toLowerCase()
-                          .includes(participantSearch.toLowerCase()),
-                    )
-                    .map((p: PersonneInscriptible) => (
-                      <label key={p.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Label>Formateurs</Label>
+                  <div className="max-h-32 overflow-y-auto space-y-1 rounded-md border p-2">
+                    {formateurs?.map((f: Formateur) => (
+                      <label key={f.id} className="flex items-center gap-2 text-sm cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={form.participantIds.includes(p.id)}
-                          onChange={() => toggleParticipant(p.id)}
+                          checked={formateurIds.includes(f.id)}
+                          onChange={() => toggleFormateur(f.id)}
                           className="rounded"
                         />
-                        {p.identifiant && (
-                          <span className="font-mono text-xs text-muted-foreground">
-                            {p.identifiant}
-                          </span>
-                        )}
-                        <span>
-                          {p.prenom} {p.nom}
-                        </span>
+                        {f.prenom} {f.nom}
                       </label>
                     ))}
-                  {(!participants || participants.length === 0) && (
-                    <p className="text-xs text-muted-foreground py-2 text-center">
-                      Aucun participant disponible
-                    </p>
-                  )}
+                    {(!formateurs || formateurs.length === 0) && (
+                      <p className="text-xs text-muted-foreground">Aucun formateur disponible</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div>
-                <Label>Formateurs</Label>
-                <div className="max-h-32 overflow-y-auto space-y-1 rounded-md border p-2">
-                  {formateurs?.map((f: Formateur) => (
-                    <label key={f.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={form.formateurIds.includes(f.id)}
-                        onChange={() => toggleFormateur(f.id)}
-                        className="rounded"
-                      />
-                      {f.prenom} {f.nom}
-                    </label>
-                  ))}
-                  {(!formateurs || formateurs.length === 0) && (
-                    <p className="text-xs text-muted-foreground">Aucun formateur disponible</p>
-                  )}
-                </div>
-              </div>
-              <Button type="submit" className="w-full" disabled={saveMutation.isPending}>
-                {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {editingId ? "Enregistrer les modifications" : "Créer la session"}
-              </Button>
-            </form>
+                <Button type="submit" className="w-full" disabled={saveMutation.isPending}>
+                  {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {editingId ? "Enregistrer les modifications" : "Créer la session"}
+                </Button>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       }
@@ -622,6 +612,21 @@ function AdminSessions() {
                     >
                       <FileText className="h-4 w-4" />
                     </button>
+                    <SessionQrDialog sessionId={s.id} titre={s.formation?.titre} />
+                    <button
+                      onClick={() => convocationMutation.mutate(s.id)}
+                      disabled={
+                        convocationMutation.isPending && convocationMutation.variables === s.id
+                      }
+                      className="rounded-md border border-border bg-background p-2 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50"
+                      title="Envoyer les convocations (.ics)"
+                    >
+                      {convocationMutation.isPending && convocationMutation.variables === s.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Mail className="h-4 w-4" />
+                      )}
+                    </button>
                     <button
                       onClick={() => openEdit(s)}
                       className="rounded-md border border-border bg-background p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -689,7 +694,7 @@ function AdminSessions() {
                             {certMutation.isPending ? "Génération..." : "Certificats"}
                           </button>
                           <button
-                            onClick={() => openCertTextDialog(s.id)}
+                            onClick={() => setCertTextSessionId(s.id)}
                             className="flex items-center justify-center gap-2 rounded-md border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100"
                           >
                             <Sparkles className="h-4 w-4" />
@@ -821,163 +826,12 @@ function AdminSessions() {
         </div>
       )}
 
-      {/* ── Dialog : texte de certificat IA ────────────────────────────────── */}
-      <Dialog
-        open={!!certTextDialog?.open}
-        onOpenChange={(open) => {
-          if (!open) closeCertTextDialog();
-        }}
-      >
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-violet-600" />
-              Texte de certificat IA
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">
-              Sélectionnez un certificat déjà généré pour cette session. Claude rédigera un texte
-              personnalisé basé sur la formation, le taux d'assiduité et les évaluations.
-            </p>
-
-            {/* Sélecteur de certificat */}
-            <div className="space-y-1.5">
-              <Label>Certificat du participant</Label>
-              <Select
-                value={certTextDialog?.certificateId || ""}
-                onValueChange={(certId) => {
-                  const cert = allCertificates?.find((c) => c.id === certId);
-                  const name = cert ? `${cert.user.prenom} ${cert.user.nom}` : "";
-                  setCertTextDialog((prev) =>
-                    prev ? { ...prev, certificateId: certId, participantName: name } : prev,
-                  );
-                  // Réinitialiser le texte si on change de certificat
-                  setCertTextValue("");
-                  setCertTextIsFallback(false);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Choisir un certificat..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {allCertificates
-                    ?.filter((c) => c.session?.id === certTextDialog?.sessionId)
-                    .map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.user.prenom} {c.user.nom} — {c.numeroCertificat}
-                      </SelectItem>
-                    ))}
-                  {allCertificates?.filter((c) => c.session?.id === certTextDialog?.sessionId)
-                    .length === 0 && (
-                    <div className="px-3 py-2 text-xs text-muted-foreground">
-                      Aucun certificat pour cette session. Générez-les d'abord.
-                    </div>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Bouton de génération */}
-            <Button
-              onClick={() => handleGenerateCertText(certTextDialog?.certificateId || "")}
-              disabled={certTextLoading || !certTextDialog?.certificateId}
-              className="w-full gap-2 bg-violet-600 hover:bg-violet-700 text-white"
-            >
-              {certTextLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4" />
-              )}
-              {certTextLoading ? "Génération en cours…" : "Générer le texte via Claude"}
-            </Button>
-
-            {/* Aperçu éditable */}
-            {certTextValue && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">Texte généré</span>
-                    {certTextIsFallback && (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                        Fallback
-                      </span>
-                    )}
-                    {!certTextIsFallback && (
-                      <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-medium text-violet-700">
-                        Claude IA
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    onClick={copyCertText}
-                    className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                    Copier
-                  </button>
-                </div>
-
-                {/* Aperçu visuel du certificat */}
-                <div className="rounded-lg border-2 border-dashed border-violet-200 bg-violet-50/40 p-6">
-                  <div className="mb-3 text-center">
-                    <p className="text-xs font-semibold uppercase tracking-widest text-violet-400">
-                      Aperçu certificat
-                    </p>
-                    {certTextDialog?.participantName && (
-                      <p className="mt-1 text-lg font-bold text-foreground">
-                        {certTextDialog.participantName}
-                      </p>
-                    )}
-                  </div>
-                  <div className="rounded bg-white p-4 shadow-sm">
-                    <p className="mb-2 text-xs font-medium text-muted-foreground italic">
-                      Nous certifions que…
-                    </p>
-                    <textarea
-                      value={certTextValue}
-                      onChange={(e) => setCertTextValue(e.target.value)}
-                      rows={10}
-                      className="w-full resize-y rounded border border-border bg-transparent px-2 py-1 text-sm leading-relaxed text-foreground outline-none focus:border-violet-400"
-                      placeholder="Le texte généré apparaîtra ici…"
-                    />
-                  </div>
-                  <p className="mt-2 text-center text-[10px] text-muted-foreground">
-                    Éditez le texte ci-dessus avant de l'utiliser dans le PDF final.
-                  </p>
-                </div>
-
-                {/* Actions finales */}
-                <div className="flex gap-2 pt-1">
-                  <Button
-                    variant="outline"
-                    onClick={() => handleGenerateCertText(certTextDialog?.certificateId || "")}
-                    disabled={certTextLoading || !certTextDialog?.certificateId}
-                    className="flex-1 gap-2"
-                  >
-                    {certTextLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-4 w-4" />
-                    )}
-                    Régénérer
-                  </Button>
-                  <Button onClick={copyCertText} variant="outline" className="flex-1 gap-2">
-                    <Copy className="h-4 w-4" />
-                    Copier le texte
-                  </Button>
-                  <Button onClick={closeCertTextDialog} variant="ghost" className="gap-2">
-                    <X className="h-4 w-4" />
-                    Fermer
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-      {/* ─────────────────────────────────────────────────────────────────────── */}
+      <CertificateTextDialog
+        key={certTextSessionId ?? "closed"}
+        open={!!certTextSessionId}
+        sessionId={certTextSessionId ?? ""}
+        onClose={() => setCertTextSessionId(null)}
+      />
 
       <AlertDialog
         open={!!deleteId}

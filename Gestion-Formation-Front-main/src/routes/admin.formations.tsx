@@ -14,6 +14,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/admin-shell";
@@ -57,7 +59,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { API_URL } from "@/lib/api/client";
-import { formationSchema } from "@/lib/validations";
+import { queryKeys } from "@/lib/api/query-keys";
+import { getErrorMessage } from "@/lib/api/errors";
+import { formationSchema, type FormationData } from "@/lib/validations";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 
 export const Route = createFileRoute("/admin/formations")({
   component: AdminFormations,
@@ -86,9 +98,11 @@ function AdminFormations() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const form = useForm<FormationData>({
+    resolver: zodResolver(formationSchema),
+    defaultValues: emptyForm,
+  });
   const [supports, setSupports] = useState<{ nom: string; url: string; type: string }[]>([]);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [pendingImage, setPendingImage] = useState<File | null>(null);
@@ -99,7 +113,7 @@ function AdminFormations() {
   const [limit] = useState(10);
 
   const { data: allFormations, isLoading } = useQuery({
-    queryKey: ["formations"],
+    queryKey: queryKeys.formationsAll,
     queryFn: () => getFormations({ all: true }),
   });
   const filtered = (allFormations || []).filter((f) => {
@@ -117,14 +131,15 @@ function AdminFormations() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (editingId) return updateFormation(editingId, form);
-      const created = await createFormation(form);
+      const values = form.getValues();
+      if (editingId) return updateFormation(editingId, values);
+      const created = await createFormation(values);
       if (pendingImage) await uploadFormationImage(created.id, pendingImage);
       for (const file of pendingSupports) await uploadFormationSupport(created.id, file);
       return created;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["formations"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.formations });
       setPendingImage(null);
       setPendingSupports([]);
       if (editingId) {
@@ -133,7 +148,7 @@ function AdminFormations() {
         toast.success("Formation modifiée");
       } else {
         setEditingId(data.id);
-        setForm({
+        form.reset({
           titre: data.titre,
           description: data.description || "",
           categorie: data.categorie || "",
@@ -149,20 +164,14 @@ function AdminFormations() {
       }
     },
     onError: (err: Error) => {
-      console.error("Save formation error:", err);
-      try {
-        const msg = JSON.parse(err.message);
-        toast.error(msg.message || "Erreur");
-      } catch {
-        toast.error(err.message || "Erreur lors de l'enregistrement");
-      }
+      toast.error(getErrorMessage(err, "Erreur lors de l'enregistrement"));
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteFormation(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["formations"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.formations });
       setDeleteId(null);
       toast.success("Formation supprimée");
       if (formations.length === 1 && page > 1) {
@@ -170,7 +179,7 @@ function AdminFormations() {
       }
     },
     onError: () => {
-      queryClient.invalidateQueries({ queryKey: ["formations"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.formations });
       setDeleteId(null);
     },
   });
@@ -189,7 +198,7 @@ function AdminFormations() {
     onSuccess: (data) => {
       if (data.imageUrl) {
         setImagePreview(`${API_URL}${data.imageUrl}`);
-        setForm({ ...form, imageUrl: data.imageUrl });
+        form.setValue("imageUrl", data.imageUrl);
       }
       toast.success("Image mise à jour");
     },
@@ -198,7 +207,7 @@ function AdminFormations() {
 
   const resetForm = () => {
     setEditingId(null);
-    setForm(emptyForm);
+    form.reset(emptyForm);
     setSupports([]);
     setImagePreview(null);
     setPendingImage(null);
@@ -212,7 +221,7 @@ function AdminFormations() {
 
   const openEdit = (f: Formation) => {
     setEditingId(f.id);
-    setForm({
+    form.reset({
       titre: f.titre,
       description: f.description || "",
       categorie: f.categorie || "",
@@ -256,235 +265,284 @@ function AdminFormations() {
                   {editingId ? "Modifier la formation" : "Nouvelle formation"}
                 </DialogTitle>
               </DialogHeader>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setFormErrors({});
-                  const r = formationSchema.safeParse(form);
-                  if (!r.success) {
-                    const fe: Record<string, string> = {};
-                    r.error.issues.forEach((i) => {
-                      const f = i.path[0] as string;
-                      if (!fe[f]) fe[f] = i.message;
-                    });
-                    setFormErrors(fe);
-                    return;
-                  }
-                  saveMutation.mutate();
-                }}
-                className="min-w-0 space-y-2.5 overflow-y-auto max-h-[70vh] pr-1"
-              >
-                <div>
-                  <Label className="text-xs">Titre</Label>
-                  <Input
-                    className="h-8"
-                    placeholder="ex : Cybersécurité Fondamentaux"
-                    value={form.titre}
-                    onChange={(e) => setForm({ ...form, titre: e.target.value })}
-                  />
-                  {formErrors.titre && (
-                    <p className="mt-1 text-xs text-destructive">{formErrors.titre}</p>
-                  )}
-                </div>
-                <div>
-                  <Label className="text-xs">Description</Label>
-                  <Textarea
-                    className="min-h-[56px]"
-                    rows={2}
-                    placeholder="Décrivez le contenu et les objectifs de la formation..."
-                    value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label className="text-xs">Catégorie</Label>
-                    <Input
-                      className="h-8"
-                      placeholder="ex : Sécurité, Management"
-                      value={form.categorie}
-                      onChange={(e) => setForm({ ...form, categorie: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Type</Label>
-                    <Select
-                      value={form.type}
-                      onValueChange={(v) =>
-                        setForm({ ...form, type: v as "catalogue" | "intra" | "inter" })
-                      }
-                    >
-                      <SelectTrigger className="h-8">
-                        <SelectValue placeholder="Sélectionner un type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="catalogue">Catalogue</SelectItem>
-                        <SelectItem value="intra">Intra</SelectItem>
-                        <SelectItem value="inter">Inter</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label className="text-xs">Tarif (DT)</Label>
-                    <Input
-                      className="h-8"
-                      type="number"
-                      placeholder="ex : 1500"
-                      min={0}
-                      value={form.tarif}
-                      onChange={(e) => setForm({ ...form, tarif: Number(e.target.value) })}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Durée (jours)</Label>
-                    <Input
-                      className="h-8"
-                      type="number"
-                      placeholder="ex : 3"
-                      min={1}
-                      max={365}
-                      value={form.dureeEnJours}
-                      onChange={(e) => setForm({ ...form, dureeEnJours: Number(e.target.value) })}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs">Programme</Label>
-                  <Textarea
-                    className="min-h-[56px]"
-                    rows={2}
-                    placeholder="Modules, chapitres, compétences visées..."
-                    value={form.programme}
-                    onChange={(e) => setForm({ ...form, programme: e.target.value })}
-                  />
-                </div>
-                <div className="min-w-0 space-y-3">
-                  <div className="space-y-2 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 p-3">
-                    <div className="flex items-center gap-2">
-                      <ImageIcon className="h-3.5 w-3.5 shrink-0 text-primary" />
-                      <span className="text-xs font-medium">Image de la formation</span>
-                    </div>
-                    {imagePreview && (
-                      <div className="overflow-hidden rounded-md border border-border">
-                        <img
-                          src={imagePreview}
-                          alt="Aperçu"
-                          className="aspect-video max-h-32 w-full object-cover"
-                        />
-                      </div>
+              <Form {...form}>
+                <form
+                  onSubmit={form.handleSubmit(() => saveMutation.mutate())}
+                  className="min-w-0 space-y-2.5 overflow-y-auto max-h-[70vh] pr-1"
+                >
+                  <FormField
+                    control={form.control}
+                    name="titre"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Titre</FormLabel>
+                        <FormControl>
+                          <Input
+                            className="h-8"
+                            placeholder="ex : Cybersécurité Fondamentaux"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                    <label className="flex cursor-pointer flex-col items-center gap-1 rounded-md border-2 border-dashed border-muted-foreground/20 bg-background px-3 py-2 transition-colors hover:border-primary/50 hover:bg-primary/5">
-                      <Upload className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">
-                        {imageUploadMutation.isPending
-                          ? "Upload en cours..."
-                          : !editingId && pendingImage
-                            ? `${pendingImage.name} (en attente)`
-                            : imagePreview
-                              ? "Changer l'image"
-                              : "Cliquez pour ajouter une image"}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp,image/gif"
-                        disabled={imageUploadMutation.isPending}
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            if (editingId) {
-                              imageUploadMutation.mutate({ id: editingId, file });
-                            } else {
-                              setPendingImage(file);
-                              setImagePreview(URL.createObjectURL(file));
-                            }
-                            e.target.value = "";
-                          }
-                        }}
-                      />
-                    </label>
+                  />
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Description</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            className="min-h-[56px]"
+                            rows={2}
+                            placeholder="Décrivez le contenu et les objectifs de la formation..."
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <FormField
+                      control={form.control}
+                      name="categorie"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Catégorie</FormLabel>
+                          <FormControl>
+                            <Input
+                              className="h-8"
+                              placeholder="ex : Sécurité, Management"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="type"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Type</FormLabel>
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <FormControl>
+                              <SelectTrigger className="h-8">
+                                <SelectValue placeholder="Sélectionner un type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="catalogue">Catalogue</SelectItem>
+                              <SelectItem value="intra">Intra</SelectItem>
+                              <SelectItem value="inter">Inter</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
-                  <div className="space-y-2 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 p-3">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
-                      <span className="text-xs font-medium">Supports PDF</span>
-                    </div>
-                    <label className="flex cursor-pointer flex-col items-center gap-1 rounded-md border-2 border-dashed border-muted-foreground/20 bg-background px-3 py-2 transition-colors hover:border-primary/50 hover:bg-primary/5">
-                      <Upload className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">
-                        {uploadMutation.isPending
-                          ? "Upload en cours..."
-                          : !editingId && pendingSupports.length > 0
-                            ? `${pendingSupports.length} fichier(s) en attente`
-                            : "Cliquez pour ajouter un PDF"}
-                      </span>
-                      <input
-                        type="file"
-                        accept=".pdf"
-                        disabled={uploadMutation.isPending}
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            if (editingId) {
-                              uploadMutation.mutate({ id: editingId, file });
-                            } else {
-                              setPendingSupports([...pendingSupports, file]);
+                  <div className="grid grid-cols-2 gap-2">
+                    <FormField
+                      control={form.control}
+                      name="tarif"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Tarif (DT)</FormLabel>
+                          <FormControl>
+                            <Input
+                              className="h-8"
+                              type="number"
+                              placeholder="ex : 1500"
+                              min={0}
+                              value={field.value ?? ""}
+                              onChange={(e) =>
+                                field.onChange(
+                                  e.target.value === "" ? undefined : Number(e.target.value),
+                                )
+                              }
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="dureeEnJours"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Durée (jours)</FormLabel>
+                          <FormControl>
+                            <Input
+                              className="h-8"
+                              type="number"
+                              placeholder="ex : 3"
+                              min={1}
+                              max={365}
+                              value={field.value ?? ""}
+                              onChange={(e) =>
+                                field.onChange(
+                                  e.target.value === "" ? undefined : Number(e.target.value),
+                                )
+                              }
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="programme"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Programme</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            className="min-h-[56px]"
+                            rows={2}
+                            placeholder="Modules, chapitres, compétences visées..."
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="min-w-0 space-y-3">
+                    <div className="space-y-2 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 p-3">
+                      <div className="flex items-center gap-2">
+                        <ImageIcon className="h-3.5 w-3.5 shrink-0 text-primary" />
+                        <span className="text-xs font-medium">Image de la formation</span>
+                      </div>
+                      {imagePreview && (
+                        <div className="overflow-hidden rounded-md border border-border">
+                          <img
+                            src={imagePreview}
+                            alt="Aperçu"
+                            className="aspect-video max-h-32 w-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <label className="flex cursor-pointer flex-col items-center gap-1 rounded-md border-2 border-dashed border-muted-foreground/20 bg-background px-3 py-2 transition-colors hover:border-primary/50 hover:bg-primary/5">
+                        <Upload className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">
+                          {imageUploadMutation.isPending
+                            ? "Upload en cours..."
+                            : !editingId && pendingImage
+                              ? `${pendingImage.name} (en attente)`
+                              : imagePreview
+                                ? "Changer l'image"
+                                : "Cliquez pour ajouter une image"}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          disabled={imageUploadMutation.isPending}
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              if (editingId) {
+                                imageUploadMutation.mutate({ id: editingId, file });
+                              } else {
+                                setPendingImage(file);
+                                setImagePreview(URL.createObjectURL(file));
+                              }
+                              e.target.value = "";
                             }
-                            e.target.value = "";
-                          }
-                        }}
-                      />
-                    </label>
-                    {(supports.length > 0 || (!editingId && pendingSupports.length > 0)) && (
-                      <ul className="min-w-0 space-y-1">
-                        {supports.map((s, i) => (
-                          <li
-                            key={i}
-                            className="flex min-w-0 items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-xs"
-                          >
-                            <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
-                            <span className="min-w-0 flex-1 truncate" title={s.nom}>
-                              {s.nom}
-                            </span>
-                            <a
-                              href={`${API_URL}${s.url}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="shrink-0 rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                            >
-                              <Download className="h-3.5 w-3.5" />
-                            </a>
-                          </li>
-                        ))}
-                        {!editingId &&
-                          pendingSupports.map((f, i) => (
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <div className="space-y-2 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 p-3">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
+                        <span className="text-xs font-medium">Supports PDF</span>
+                      </div>
+                      <label className="flex cursor-pointer flex-col items-center gap-1 rounded-md border-2 border-dashed border-muted-foreground/20 bg-background px-3 py-2 transition-colors hover:border-primary/50 hover:bg-primary/5">
+                        <Upload className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">
+                          {uploadMutation.isPending
+                            ? "Upload en cours..."
+                            : !editingId && pendingSupports.length > 0
+                              ? `${pendingSupports.length} fichier(s) en attente`
+                              : "Cliquez pour ajouter un PDF"}
+                        </span>
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          disabled={uploadMutation.isPending}
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              if (editingId) {
+                                uploadMutation.mutate({ id: editingId, file });
+                              } else {
+                                setPendingSupports([...pendingSupports, file]);
+                              }
+                              e.target.value = "";
+                            }
+                          }}
+                        />
+                      </label>
+                      {(supports.length > 0 || (!editingId && pendingSupports.length > 0)) && (
+                        <ul className="min-w-0 space-y-1">
+                          {supports.map((s, i) => (
                             <li
-                              key={`pending-${i}`}
-                              className="flex min-w-0 items-center gap-2 rounded-md border border-dashed bg-background px-2.5 py-1.5 text-xs text-muted-foreground"
+                              key={i}
+                              className="flex min-w-0 items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-xs"
                             >
-                              <FileText className="h-3.5 w-3.5 shrink-0 text-primary/50" />
-                              <span className="min-w-0 flex-1 truncate" title={f.name}>
-                                {f.name}
+                              <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
+                              <span className="min-w-0 flex-1 truncate" title={s.nom}>
+                                {s.nom}
                               </span>
-                              <span className="shrink-0 text-[10px]">en attente</span>
+                              <a
+                                href={`${API_URL}${s.url}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="shrink-0 rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                              </a>
                             </li>
                           ))}
-                      </ul>
-                    )}
+                          {!editingId &&
+                            pendingSupports.map((f, i) => (
+                              <li
+                                key={`pending-${i}`}
+                                className="flex min-w-0 items-center gap-2 rounded-md border border-dashed bg-background px-2.5 py-1.5 text-xs text-muted-foreground"
+                              >
+                                <FileText className="h-3.5 w-3.5 shrink-0 text-primary/50" />
+                                <span className="min-w-0 flex-1 truncate" title={f.name}>
+                                  {f.name}
+                                </span>
+                                <span className="shrink-0 text-[10px]">en attente</span>
+                              </li>
+                            ))}
+                        </ul>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full h-8 text-xs"
-                  disabled={saveMutation.isPending}
-                >
-                  {saveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                  {editingId ? "Enregistrer les modifications" : "Créer la formation"}
-                </Button>
-              </form>
+                  <Button
+                    type="submit"
+                    className="w-full h-8 text-xs"
+                    disabled={saveMutation.isPending}
+                  >
+                    {saveMutation.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : null}
+                    {editingId ? "Enregistrer les modifications" : "Créer la formation"}
+                  </Button>
+                </form>
+              </Form>
             </DialogContent>
           </Dialog>
         </>

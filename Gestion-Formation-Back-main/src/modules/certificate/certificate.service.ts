@@ -14,6 +14,7 @@ import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { UpdateCertificateDto } from './dto/update-certificate.dto';
 import { CertificateStatus, NotificationType } from '../../common/enums';
 import { NotificationService } from '../notification/notification.service';
+import { finalizePdf } from '../../common/pdf/finalize-pdf';
 
 @Injectable()
 export class CertificateService {
@@ -39,13 +40,13 @@ export class CertificateService {
 
   async create(dto: CreateCertificateDto): Promise<Certificate> {
     const user = await this.userRepository.findOneBy({ id: dto.employeId });
-    if (!user) throw new NotFoundException(`User #${dto.employeId} not found`);
+    if (!user) throw new NotFoundException(`Utilisateur #${dto.employeId} introuvable`);
 
     const formation = await this.formationRepository.findOneBy({ id: dto.formationId });
-    if (!formation) throw new NotFoundException(`Formation #${dto.formationId} not found`);
+    if (!formation) throw new NotFoundException(`Formation #${dto.formationId} introuvable`);
 
     const session = await this.sessionRepository.findOneBy({ id: dto.sessionId });
-    if (!session) throw new NotFoundException(`Session #${dto.sessionId} not found`);
+    if (!session) throw new NotFoundException(`Session #${dto.sessionId} introuvable`);
 
     const certificate = this.certificateRepository.create({
       ...dto,
@@ -77,7 +78,7 @@ export class CertificateService {
       where: { id },
       relations: { user: true, formation: true, session: true },
     });
-    if (!certificate) throw new NotFoundException(`Certificate #${id} not found`);
+    if (!certificate) throw new NotFoundException(`Certificat #${id} introuvable`);
     return certificate;
   }
 
@@ -89,7 +90,7 @@ export class CertificateService {
 
   async remove(id: string): Promise<void> {
     const result = await this.certificateRepository.delete(id);
-    if (result.affected === 0) throw new NotFoundException(`Certificate #${id} not found`);
+    if (result.affected === 0) throw new NotFoundException(`Certificat #${id} introuvable`);
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -562,7 +563,6 @@ export class CertificateService {
     drawSigBox(leftBX, 'Cachet du responsable',     adminSignature?.imageData);
 
     // ── Fin du document ──────────────────────────────────────────────────────────
-    doc.end();
-    return new Promise((resolve) => stream.on('finish', resolve));
+    return finalizePdf(doc, stream);
   }
 }

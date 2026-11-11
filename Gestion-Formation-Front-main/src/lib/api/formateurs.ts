@@ -1,4 +1,4 @@
-import { api, API_BASE } from "./client";
+import { api, API_BASE, getAuthHeaders } from "./client";
 import type { Evaluation } from "./evaluations";
 import type { SessionRef } from "./types";
 
@@ -65,10 +65,9 @@ export async function uploadFormateurDocument(
   type: string,
   file: File,
 ): Promise<Formateur> {
-  const token = localStorage.getItem("access_token");
   const res = await fetch(`${API_BASE}/formateurs/${id}/upload-document/${type}`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(),
     body: (() => {
       const fd = new FormData();
       fd.append("file", file);

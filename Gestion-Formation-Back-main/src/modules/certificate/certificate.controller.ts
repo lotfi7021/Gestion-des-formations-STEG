@@ -17,11 +17,13 @@ export class CertificateController {
     private readonly aiService: AiService,
   ) {}
 
+  @UseGuards(ManualJwtGuard, AdminGuard)
   @Post()
   create(@Body() dto: CreateCertificateDto) {
     return this.certificateService.create(dto);
   }
 
+  @UseGuards(ManualJwtGuard, AdminGuard)
   @Get()
   findAll() {
     return this.certificateService.findAll();
@@ -33,6 +35,7 @@ export class CertificateController {
     return this.certificateService.findByUser(req.user.sub);
   }
 
+  @UseGuards(ManualJwtGuard, AdminGuard)
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.certificateService.findOne(id);
@@ -63,11 +66,13 @@ export class CertificateController {
     return this.certificateService.regenerate(id);
   }
 
+  @UseGuards(ManualJwtGuard, AdminGuard)
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateCertificateDto) {
     return this.certificateService.update(id, dto);
   }
 
+  @UseGuards(ManualJwtGuard, AdminGuard)
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.certificateService.remove(id);

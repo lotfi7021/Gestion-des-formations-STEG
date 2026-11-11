@@ -24,12 +24,22 @@ export class MailService {
     }
   }
 
-  async send(options: { to: string; subject: string; html: string }) {
+  async send(options: {
+    to: string;
+    subject: string;
+    html: string;
+    attachments?: { filename: string; content: string | Buffer; contentType?: string }[];
+  }) {
     const from = this.config.get<string>('MAIL_FROM') || 'noreply@formapro.fr';
 
     if (!this.transporter) {
       this.logger.log(`[EMAIL LOG] To: ${options.to} | Subject: ${options.subject}`);
       this.logger.log(`[EMAIL LOG] Body: ${options.html}`);
+      if (options.attachments?.length) {
+        this.logger.log(
+          `[EMAIL LOG] Attachments: ${options.attachments.map((a) => a.filename).join(', ')}`,
+        );
+      }
       return;
     }
 

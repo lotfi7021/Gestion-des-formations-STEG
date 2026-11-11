@@ -11,6 +11,7 @@ import { RegisterDto } from './dto/register.dto';
 import { MailService } from '../mail/mail.service';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../../common/enums';
+import { brandedEmailHtml } from '../../common/email-helper';
 
 @Injectable()
 export class AuthService {
@@ -26,13 +27,14 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     // Login par email OU username OU identifiant STEG (ex: 2026STG001)
-    const user = await this.userRepository.findOne({
-      where: [
-        { email: dto.email },
-        { username: dto.email },
-        { identifiant: dto.email },
-      ],
-    });
+    // password est en select:false : on le redemande explicitement.
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .where('user.email = :q', { q: dto.email })
+      .orWhere('user.username = :q', { q: dto.email })
+      .orWhere('user.identifiant = :q', { q: dto.email })
+      .getOne();
 
     if (!user) throw new UnauthorizedException('Identifiants incorrects');
 
@@ -69,7 +71,11 @@ export class AuthService {
   }
 
   async refresh(refreshToken: string) {
-    const users = await this.userRepository.find({ where: { isActive: true } });
+    const users = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.refreshToken')
+      .where('user.isActive = :active', { active: true })
+      .getMany();
 
     let user: User | null = null;
     for (const u of users) {
@@ -144,27 +150,13 @@ export class AuthService {
     await this.mailService.send({
       to: user.email,
       subject: "Inscription reçue — En attente d'approbation",
-      html: `
-        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 560px; margin: auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
-          <div style="background: #0a7c6e; padding: 28px 32px;">
-            <table><tr>
-              <td style="width: 40px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 8px; text-align: center; vertical-align: middle; font-size: 22px; font-weight: 700; color: #fff;">F</td>
-               <td style="padding-left: 12px; font-size: 22px; font-weight: 700; color: #ffffff;">steg_form</td>
-            </tr></table>
-          </div>
-          <div style="padding: 36px 32px;">
+      html: brandedEmailHtml(`
             <p style="margin: 0 0 8px; color: #374151; font-size: 15px;">Bonjour <strong style="color: #0a7c6e;">${user.username}</strong>,</p>
             <p style="margin: 0 0 20px; color: #374151; font-size: 15px; line-height: 1.6;">
               Votre inscription en tant que <strong>${user.role}</strong> a bien été reçue.<br>
               Un administrateur va valider votre compte dans les plus brefs délais.<br>
               Vous recevrez un email dès que votre compte sera actif.
-            </p>
-          </div>
-          <div style="background: #f9fafb; border-top: 1px solid #e5e7eb; padding: 20px 32px; text-align: center;">
-            <p style="margin: 0; color: #9ca3af; font-size: 12px;">Cet email a été envoyé automatiquement depuis steg_form.</p>
-          </div>
-        </div>
-      `,
+            </p>`),
     });
 
     const admin = await this.userRepository.findOne({ where: { role: UserRole.ADMIN } });
@@ -213,7 +205,11 @@ export class AuthService {
   }
 
   async changePassword(userId: string, currentPassword: string, newPassword: string) {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .where('user.id = :id', { id: userId })
+      .getOne();
     if (!user) throw new UnauthorizedException();
 
     const valid = await bcrypt.compare(currentPassword, user.password);
@@ -242,27 +238,13 @@ export class AuthService {
     await this.mailService.send({
       to: user.email,
       subject: 'Compte approuvé — Bienvenue sur steg_form',
-      html: `
-        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 560px; margin: auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
-          <div style="background: #0a7c6e; padding: 28px 32px;">
-            <table><tr>
-              <td style="width: 40px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 8px; text-align: center; vertical-align: middle; font-size: 22px; font-weight: 700; color: #fff;">F</td>
-               <td style="padding-left: 12px; font-size: 22px; font-weight: 700; color: #ffffff;">steg_form</td>
-            </tr></table>
-          </div>
-          <div style="padding: 36px 32px;">
+      html: brandedEmailHtml(`
             <p style="margin: 0 0 8px; color: #374151; font-size: 15px;">Bonjour <strong style="color: #0a7c6e;">${user.username}</strong>,</p>
             <p style="margin: 0 0 20px; color: #374151; font-size: 15px; line-height: 1.6;">
               Votre compte <strong>${user.role}</strong> a été approuvé par un administrateur.<br>
               Vous pouvez dès maintenant vous connecter à la plateforme steg_form.
             </p>
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:8081'}/connexion" style="display: inline-block; background: #0a7c6e; color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">Se connecter</a>
-          </div>
-          <div style="background: #f9fafb; border-top: 1px solid #e5e7eb; padding: 20px 32px; text-align: center;">
-            <p style="margin: 0; color: #9ca3af; font-size: 12px;">Cet email a été envoyé automatiquement depuis steg_form.</p>
-          </div>
-        </div>
-      `,
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:8081'}/connexion" style="display: inline-block; background: #0a7c6e; color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">Se connecter</a>`),
     });
 
     return { message: 'Utilisateur approuvé' };
@@ -285,13 +267,5 @@ export class AuthService {
 
   async logout(userId: string) {
     await this.userRepository.update(userId, { refreshToken: null });
-  }
-
-  decodeToken(token: string) {
-    return this.jwtService.decode(token);
-  }
-
-  async verifyToken(token: string) {
-    return this.jwtService.verify(token);
   }
 }

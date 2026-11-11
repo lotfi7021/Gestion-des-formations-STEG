@@ -73,6 +73,10 @@ export class Session {
   @Column({ type: 'text', nullable: true })
   notes: string;
 
+  /** Jeton opaque utilisé par le QR code de pointage (généré à la demande). */
+  @Column({ type: 'varchar', length: 64, nullable: true, unique: true })
+  checkInToken: string;
+
   // Relations
   @ManyToOne(() => Formation, (formation) => formation.sessions, { nullable: false })
   formation: Formation;

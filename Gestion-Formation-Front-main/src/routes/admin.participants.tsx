@@ -1,20 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  Download,
-  Plus,
-  Loader2,
-  Pencil,
-  Trash2,
-  ToggleLeft,
-  ToggleRight,
-  GraduationCap,
-} from "lucide-react";
+import { Download, Plus, Loader2, Pencil, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/admin-shell";
-import { getSessions } from "@/lib/api/sessions";
-import { adminEnrollUser } from "@/lib/api/sessions";
 import {
   getParticipants,
   createParticipant,
@@ -23,6 +14,8 @@ import {
   toggleUserActive,
   type Participant,
 } from "@/lib/api/users";
+import { queryKeys } from "@/lib/api/query-keys";
+import { getErrorMessage } from "@/lib/api/errors";
 import { Button } from "@/components/ui/button";
 import { API_URL } from "@/lib/api/client";
 import {
@@ -43,7 +36,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { employeSchema, type EmployeData } from "@/lib/validations";
 
 export const Route = createFileRoute("/admin/participants")({
   component: AdminParticipants,
@@ -63,13 +64,15 @@ function AdminParticipants() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
+  const form = useForm<EmployeData>({
+    resolver: zodResolver(employeSchema),
+    defaultValues: emptyForm,
+  });
 
   const { data: participants, isLoading } = useQuery({
-    queryKey: ["participants"],
+    queryKey: queryKeys.participants,
     queryFn: getParticipants,
   });
   const filtered = (participants || []).filter((p) => {
@@ -84,38 +87,33 @@ function AdminParticipants() {
 
   const saveMutation = useMutation({
     mutationFn: () => {
-      const { entrepriseText, ...rest } = form;
+      const { entrepriseText, ...rest } = form.getValues();
       const payload = { ...rest, entrepriseText: entrepriseText || undefined };
       return editingId ? updateParticipant(editingId, payload) : createParticipant(payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["participants"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.participants });
       setOpen(false);
       setEditingId(null);
-      setForm(emptyForm);
+      form.reset(emptyForm);
       toast.success(
         editingId ? "Participant modifié" : "Participant ajouté — email de connexion envoyé",
       );
     },
     onError: (err: Error) => {
-      try {
-        const msg = JSON.parse(err.message);
-        toast.error(msg.message || "Erreur");
-      } catch {
-        toast.error("Erreur lors de l'enregistrement");
-      }
+      toast.error(getErrorMessage(err, "Erreur lors de l'enregistrement"));
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteParticipant(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["participants"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.participants });
       setDeleteId(null);
       toast.success("Participant supprimé");
     },
     onError: () => {
-      queryClient.invalidateQueries({ queryKey: ["participants"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.participants });
       setDeleteId(null);
     },
   });
@@ -124,7 +122,7 @@ function AdminParticipants() {
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       toggleUserActive(id, isActive),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["participants"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.participants });
       toast.success("Statut mis à jour");
     },
     onError: () => toast.error("Erreur lors de la mise à jour"),
@@ -132,13 +130,13 @@ function AdminParticipants() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm(emptyForm);
+    form.reset(emptyForm);
     setOpen(true);
   };
 
   const openEdit = (p: Participant) => {
     setEditingId(p.id);
-    setForm({
+    form.reset({
       nom: p.nom,
       prenom: p.prenom,
       email: p.email,
@@ -165,7 +163,7 @@ function AdminParticipants() {
               setOpen(v);
               if (!v) {
                 setEditingId(null);
-                setForm(emptyForm);
+                form.reset(emptyForm);
               }
             }}
           >
@@ -180,76 +178,80 @@ function AdminParticipants() {
                   {editingId ? "Modifier le participant" : "Nouveau participant"}
                 </DialogTitle>
               </DialogHeader>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setFormErrors({});
-                  if (!form.nom || !form.prenom || !form.email) {
-                    const fe: Record<string, string> = {};
-                    if (!form.nom) fe.nom = "Requis";
-                    if (!form.prenom) fe.prenom = "Requis";
-                    if (!form.email) fe.email = "Requis";
-                    setFormErrors(fe);
-                    return;
-                  }
-                  saveMutation.mutate();
-                }}
-                className="space-y-4"
-              >
-                <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 p-3">
-                  <p className="text-xs text-muted-foreground">
-                    Un email avec les identifiants de connexion sera envoyé automatiquement.
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Nom</Label>
-                    <Input
-                      placeholder="ex : Dupont"
-                      value={form.nom}
-                      onChange={(e) => setForm({ ...form, nom: e.target.value })}
-                    />
-                    {formErrors.nom && (
-                      <p className="mt-1 text-xs text-destructive">{formErrors.nom}</p>
-                    )}
+              <Form {...form}>
+                <form
+                  onSubmit={form.handleSubmit(() => saveMutation.mutate())}
+                  className="space-y-4"
+                >
+                  <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 p-3">
+                    <p className="text-xs text-muted-foreground">
+                      Un email avec les identifiants de connexion sera envoyé automatiquement.
+                    </p>
                   </div>
-                  <div>
-                    <Label>Prénom</Label>
-                    <Input
-                      placeholder="ex : Jean"
-                      value={form.prenom}
-                      onChange={(e) => setForm({ ...form, prenom: e.target.value })}
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField
+                      control={form.control}
+                      name="nom"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nom</FormLabel>
+                          <FormControl>
+                            <Input placeholder="ex : Dupont" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                    {formErrors.prenom && (
-                      <p className="mt-1 text-xs text-destructive">{formErrors.prenom}</p>
-                    )}
+                    <FormField
+                      control={form.control}
+                      name="prenom"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Prénom</FormLabel>
+                          <FormControl>
+                            <Input placeholder="ex : Jean" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
-                </div>
-                <div>
-                  <Label>Email</Label>
-                  <Input
-                    type="email"
-                    placeholder="ex : jean.dupont@entreprise.fr"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="email"
+                            placeholder="ex : jean.dupont@entreprise.fr"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                  {formErrors.email && (
-                    <p className="mt-1 text-xs text-destructive">{formErrors.email}</p>
-                  )}
-                </div>
-                <div>
-                  <Label>Téléphone</Label>
-                  <Input
-                    placeholder="+216XXXXXXXX"
-                    value={form.telephone}
-                    onChange={(e) => setForm({ ...form, telephone: e.target.value })}
+                  <FormField
+                    control={form.control}
+                    name="telephone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Téléphone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="+216XXXXXXXX" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-                <Button type="submit" className="w-full" disabled={saveMutation.isPending}>
-                  {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  {editingId ? "Enregistrer les modifications" : "Ajouter le participant"}
-                </Button>
-              </form>
+                  <Button type="submit" className="w-full" disabled={saveMutation.isPending}>
+                    {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    {editingId ? "Enregistrer les modifications" : "Ajouter le participant"}
+                  </Button>
+                </form>
+              </Form>
             </DialogContent>
           </Dialog>
         </>

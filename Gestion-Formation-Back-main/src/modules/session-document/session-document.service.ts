@@ -92,7 +92,7 @@ export class SessionDocumentService {
     const filePath = join(__dirname, '..', '..', '..', 'uploads', 'session-docs', doc.filename);
     try {
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    } catch (err: any) {
+    } catch {
       // Log silencieux : la ligne DB est déjà supprimée
     }
   }

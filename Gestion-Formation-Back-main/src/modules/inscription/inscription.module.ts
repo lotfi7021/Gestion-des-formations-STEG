@@ -10,6 +10,7 @@ import { InscriptionService } from './inscription.service';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationModule } from '../notification/notification.module';
 import { PresenceModule } from '../presence/presence.module';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { PresenceModule } from '../presence/presence.module';
     AuthModule,
     NotificationModule,
     PresenceModule,
+    MailModule,
   ],
   controllers: [InscriptionController],
   providers: [InscriptionService],

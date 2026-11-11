@@ -20,13 +20,13 @@ export class EvaluationService {
 
   async create(dto: CreateEvaluationDto): Promise<Evaluation> {
     const formateur = await this.userRepository.findOneBy({ id: dto.formateurId });
-    if (!formateur) throw new NotFoundException(`Formateur #${dto.formateurId} not found`);
+    if (!formateur) throw new NotFoundException(`Formateur #${dto.formateurId} introuvable`);
 
     const session = await this.sessionRepository.findOneBy({ id: dto.sessionId });
-    if (!session) throw new NotFoundException(`Session #${dto.sessionId} not found`);
+    if (!session) throw new NotFoundException(`Session #${dto.sessionId} introuvable`);
 
     const participant = await this.userRepository.findOneBy({ id: dto.participantId });
-    if (!participant) throw new NotFoundException(`Participant #${dto.participantId} not found`);
+    if (!participant) throw new NotFoundException(`Participant #${dto.participantId} introuvable`);
 
     const existing = await this.evaluationRepository.findOne({
       where: { session: { id: dto.sessionId }, participant: { id: dto.participantId } },
@@ -60,7 +60,7 @@ export class EvaluationService {
       where: { id },
       relations: { formateur: true, session: true, participant: true },
     });
-    if (!evaluation) throw new NotFoundException(`Evaluation #${id} not found`);
+    if (!evaluation) throw new NotFoundException(`Evaluation #${id} introuvable`);
     return evaluation;
   }
 
@@ -72,6 +72,6 @@ export class EvaluationService {
 
   async remove(id: string): Promise<void> {
     const result = await this.evaluationRepository.delete(id);
-    if (result.affected === 0) throw new NotFoundException(`Evaluation #${id} not found`);
+    if (result.affected === 0) throw new NotFoundException(`Evaluation #${id} introuvable`);
   }
 }

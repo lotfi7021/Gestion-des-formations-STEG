@@ -1,13 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Calendar,
   Clock,
   Loader2,
   ArrowUpRight,
-  Moon,
-  Sun,
   FileText,
   Upload,
   Download,
@@ -16,11 +14,12 @@ import {
   Paperclip,
   Trash2,
 } from "lucide-react";
-import { ProtectedRoute } from "@/components/protected-route";
 import { PageShell } from "@/components/page-shell";
 import { useAuth } from "@/contexts/auth-context";
-import { API_URL, API_BASE } from "@/lib/api/client";
+import { API_URL, API_BASE, getAccessToken } from "@/lib/api/client";
 import { getMySessions, type Session } from "@/lib/api/sessions";
+import { queryKeys } from "@/lib/api/query-keys";
+import { requireAuth } from "@/lib/route-auth";
 import {
   getSessionDocuments,
   uploadSessionDocument,
@@ -41,17 +40,16 @@ import {
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/formateur/dashboard")({
-  component: () => (
-    <ProtectedRoute requiredRole="formateur">
-      <FormateurDashboard />
-    </ProtectedRoute>
-  ),
+  beforeLoad: () => {
+    requireAuth(["formateur"]);
+  },
+  component: FormateurDashboard,
 });
 
 function FormateurDashboard() {
   const { user } = useAuth();
   const { data: mesSessions, isLoading } = useQuery({
-    queryKey: ["my-sessions"],
+    queryKey: queryKeys.mySessions(),
     queryFn: () => getMySessions(),
   });
 
@@ -103,7 +101,7 @@ function SessionCard({ session }: { session: Session }) {
   const queryClient = useQueryClient();
 
   const { data: documents } = useQuery({
-    queryKey: ["session-documents", session.id],
+    queryKey: queryKeys.sessionDocuments(session.id),
     queryFn: () => getSessionDocuments(session.id),
     enabled: expanded,
   });
@@ -112,7 +110,7 @@ function SessionCard({ session }: { session: Session }) {
     mutationFn: (docId: string) => deleteSessionDocument(session.id, docId),
     onSuccess: () => {
       toast.success("Document supprimé");
-      queryClient.invalidateQueries({ queryKey: ["session-documents", session.id] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.sessionDocuments(session.id) });
     },
     onError: (err: Error) => {
       toast.error(err instanceof Error ? err.message : "Erreur lors de la suppression");
@@ -126,7 +124,7 @@ function SessionCard({ session }: { session: Session }) {
     try {
       await uploadSessionDocument(session.id, file);
       toast.success("Document ajouté");
-      queryClient.invalidateQueries({ queryKey: ["session-documents", session.id] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.sessionDocuments(session.id) });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur lors de l'upload");
     } finally {
@@ -201,7 +199,7 @@ function SessionCard({ session }: { session: Session }) {
           )}
 
           {documents?.map((doc: SessionDocument) => {
-            const token = localStorage.getItem("access_token");
+            const token = getAccessToken();
             return (
               <div
                 key={doc.id}
@@ -252,38 +250,5 @@ function SessionCard({ session }: { session: Session }) {
         </div>
       )}
     </div>
-  );
-}
-
-function DarkModeToggle() {
-  const [dark, setDark] = useState(false);
-
-  useEffect(() => {
-    const stored = localStorage.getItem("theme");
-    if (
-      stored === "dark" ||
-      (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches)
-    ) {
-      document.documentElement.classList.add("dark");
-      setDark(true);
-    }
-  }, []);
-
-  function toggle() {
-    const next = !dark;
-    document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("theme", next ? "dark" : "light");
-    setDark(next);
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={toggle}
-      className="rounded-md border border-border p-2 text-foreground transition-colors hover:bg-secondary"
-      title={dark ? "Mode clair" : "Mode sombre"}
-    >
-      {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-    </button>
   );
 }

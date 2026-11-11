@@ -1,4 +1,4 @@
-import { api, API_BASE } from "./client";
+import { api, API_BASE, getAccessToken, getAuthHeaders } from "./client";
 
 export type SessionDocument = {
   id: string;
@@ -26,10 +26,9 @@ export async function uploadSessionDocument(
 ): Promise<SessionDocument> {
   const formData = new FormData();
   formData.append("file", file);
-  const token = localStorage.getItem("access_token");
   const res = await fetch(`${API_BASE}/sessions/${sessionId}/documents/upload`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(),
     body: formData,
   });
   if (!res.ok) {
@@ -44,6 +43,6 @@ export async function deleteSessionDocument(sessionId: string, docId: string): P
 }
 
 export function getDocumentDownloadUrl(sessionId: string, docId: string): string {
-  const token = localStorage.getItem("access_token");
+  const token = getAccessToken();
   return `${API_BASE}/sessions/${sessionId}/documents/${docId}/download?token=${token}`;
 }

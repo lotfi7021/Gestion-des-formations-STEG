@@ -26,7 +26,7 @@ export class EntrepriseService {
       where: { id },
       relations: { users: true },
     });
-    if (!entreprise) throw new NotFoundException(`Entreprise #${id} not found`);
+    if (!entreprise) throw new NotFoundException(`Entreprise #${id} introuvable`);
     return entreprise;
   }
 
@@ -38,6 +38,6 @@ export class EntrepriseService {
 
   async remove(id: string): Promise<void> {
     const result = await this.entrepriseRepository.delete(id);
-    if (result.affected === 0) throw new NotFoundException(`Entreprise #${id} not found`);
+    if (result.affected === 0) throw new NotFoundException(`Entreprise #${id} introuvable`);
   }
 }
