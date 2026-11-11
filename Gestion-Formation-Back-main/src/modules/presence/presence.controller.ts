@@ -17,6 +17,12 @@ export class PresenceController {
     return this.presenceService.findAll();
   }
 
+  /** Retourne les présences d'une session + taux de présence calculé */
+  @Get('session/:sessionId')
+  findBySession(@Param('sessionId') sessionId: string) {
+    return this.presenceService.findBySession(sessionId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.presenceService.findOne(id);

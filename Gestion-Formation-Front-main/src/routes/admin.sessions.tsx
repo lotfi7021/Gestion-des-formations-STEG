@@ -14,6 +14,9 @@ import {
   FileSignature,
   UserCheck,
   Building2,
+  Sparkles,
+  Copy,
+  X,
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -31,7 +34,8 @@ import { API_BASE } from "@/lib/api/client";
 import { getEmployes } from "@/lib/api/employes";
 import { getFormateurs } from "@/lib/api/formateurs";
 import { getParticipants } from "@/lib/api/users";
-import { generateSessionCertificates } from "@/lib/api/certificates";
+import { generateSessionCertificates, getCertificates, type Certificate } from "@/lib/api/certificates";
+import { generateSessionSummary, generateCertificateText } from "@/lib/api/ai";
 import {
   generateConvention,
   generateContratFormateur,
@@ -114,6 +118,96 @@ function AdminSessions() {
   const [source, setSource] = useState<"employes" | "participants">("participants");
   const [originFilter, setOriginFilter] = useState<"all" | "platform" | "cabinet">("all");
   const [search, setSearch] = useState("");
+
+  // ─── État résumé IA ───────────────────────────────────────────────────────
+  // summaryState : null = pas encore généré, 'loading' = en cours, string = texte généré
+  const [summaryBySession, setSummaryBySession] = useState<Record<string, string>>({});
+  const [summaryLoadingId, setSummaryLoadingId] = useState<string | null>(null);
+  const [summaryEditById, setSummaryEditById] = useState<Record<string, string>>({});
+
+  const handleGenerateSummary = async (sessionId: string) => {
+    setSummaryLoadingId(sessionId);
+    try {
+      const result = await generateSessionSummary(sessionId);
+      setSummaryBySession((prev) => ({ ...prev, [sessionId]: result.text }));
+      setSummaryEditById((prev) => ({ ...prev, [sessionId]: result.text }));
+      if (result.isFallback) {
+        toast.warning("Résumé généré en mode fallback (IA indisponible)");
+      } else {
+        toast.success("Résumé IA généré avec succès");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de la génération du résumé");
+    } finally {
+      setSummaryLoadingId(null);
+    }
+  };
+
+  const copySummary = (sessionId: string) => {
+    const text = summaryEditById[sessionId] || summaryBySession[sessionId];
+    if (text) {
+      navigator.clipboard.writeText(text).then(() => toast.success("Résumé copié"));
+    }
+  };
+
+  const dismissSummary = (sessionId: string) => {
+    setSummaryBySession((prev) => { const n = { ...prev }; delete n[sessionId]; return n; });
+    setSummaryEditById((prev) => { const n = { ...prev }; delete n[sessionId]; return n; });
+  };
+
+  // ─── État texte de certificat IA ──────────────────────────────────────────
+  const [certTextDialog, setCertTextDialog] = useState<{
+    open: boolean;
+    sessionId: string;
+    certificateId: string;
+    participantName: string;
+  } | null>(null);
+  const [certTextLoading, setCertTextLoading] = useState(false);
+  const [certTextValue, setCertTextValue] = useState("");
+  const [certTextIsFallback, setCertTextIsFallback] = useState(false);
+
+  // Certificats chargés pour la session active (chargé à la demande)
+  const { data: allCertificates } = useQuery({
+    queryKey: ["certificates"],
+    queryFn: getCertificates,
+    enabled: !!certTextDialog,
+  });
+
+  const openCertTextDialog = (sessionId: string) => {
+    setCertTextDialog({ open: true, sessionId, certificateId: "", participantName: "" });
+    setCertTextValue("");
+    setCertTextIsFallback(false);
+  };
+
+  const closeCertTextDialog = () => {
+    setCertTextDialog(null);
+    setCertTextValue("");
+  };
+
+  const handleGenerateCertText = async (certId: string) => {
+    if (!certId) return;
+    setCertTextLoading(true);
+    try {
+      const result = await generateCertificateText(certId);
+      setCertTextValue(result.text);
+      setCertTextIsFallback(result.isFallback);
+      if (result.isFallback) {
+        toast.warning("Texte généré en mode fallback (IA indisponible)");
+      } else {
+        toast.success("Texte de certificat généré avec succès");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de la génération");
+    } finally {
+      setCertTextLoading(false);
+    }
+  };
+
+  const copyCertText = () => {
+    if (certTextValue) {
+      navigator.clipboard.writeText(certTextValue).then(() => toast.success("Texte copié"));
+    }
+  };
 
   const { data: sessions, isLoading } = useQuery({ queryKey: ["sessions"], queryFn: getSessions });
   const filtered = (sessions || [])
@@ -645,7 +739,7 @@ function AdminSessions() {
                     )}
                     {s.isCompleted && (
                       <div className="border-t border-border pt-3 space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-3 gap-2">
                           <button
                             onClick={() => certMutation.mutate(s.id)}
                             disabled={certMutation.isPending}
@@ -670,10 +764,89 @@ function AdminSessions() {
                             )}
                             {emargementMutation.isPending ? "Génération..." : "Émargement"}
                           </button>
+                          <button
+                            onClick={() => openCertTextDialog(s.id)}
+                            className="flex items-center justify-center gap-2 rounded-md border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100"
+                          >
+                            <Sparkles className="h-4 w-4" />
+                            Texte cert. IA
+                          </button>
                         </div>
                         <div className="text-xs text-muted-foreground text-center">
                           Générer des documents pour cette session
                         </div>
+
+                        {/* ── Résumé IA ─────────────────────────────────── */}
+                        <div className="border-t border-border pt-3">
+                          {!summaryBySession[s.id] ? (
+                            <button
+                              onClick={() => handleGenerateSummary(s.id)}
+                              disabled={summaryLoadingId === s.id}
+                              className="flex w-full items-center justify-center gap-2 rounded-md border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+                            >
+                              {summaryLoadingId === s.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Sparkles className="h-4 w-4" />
+                              )}
+                              {summaryLoadingId === s.id
+                                ? "Génération en cours…"
+                                : "Générer résumé IA"}
+                            </button>
+                          ) : (
+                            <div className="rounded-md border border-violet-200 bg-violet-50/60 p-3 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="flex items-center gap-1.5 text-xs font-semibold text-violet-700">
+                                  <Sparkles className="h-3.5 w-3.5" />
+                                  Résumé IA généré
+                                </span>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => copySummary(s.id)}
+                                    title="Copier"
+                                    className="rounded p-1 text-violet-600 hover:bg-violet-100"
+                                  >
+                                    <Copy className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleGenerateSummary(s.id)}
+                                    disabled={summaryLoadingId === s.id}
+                                    title="Régénérer"
+                                    className="rounded p-1 text-violet-600 hover:bg-violet-100 disabled:opacity-50"
+                                  >
+                                    {summaryLoadingId === s.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <Sparkles className="h-3.5 w-3.5" />
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={() => dismissSummary(s.id)}
+                                    title="Fermer"
+                                    className="rounded p-1 text-muted-foreground hover:bg-secondary"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                              <textarea
+                                value={summaryEditById[s.id] ?? summaryBySession[s.id]}
+                                onChange={(e) =>
+                                  setSummaryEditById((prev) => ({
+                                    ...prev,
+                                    [s.id]: e.target.value,
+                                  }))
+                                }
+                                rows={8}
+                                className="w-full resize-y rounded border border-violet-200 bg-white px-3 py-2 text-xs leading-relaxed text-foreground outline-none focus:border-violet-400"
+                              />
+                              <p className="text-[10px] text-muted-foreground">
+                                Vous pouvez éditer ce texte avant de le copier ou l'utiliser.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        {/* ─────────────────────────────────────────────── */}
                       </div>
                     )}
                     {!s.isCompleted && !s.isCancelled && (
@@ -742,6 +915,166 @@ function AdminSessions() {
           })}
         </div>
       )}
+
+      {/* ── Dialog : texte de certificat IA ────────────────────────────────── */}
+      <Dialog
+        open={!!certTextDialog?.open}
+        onOpenChange={(open) => {
+          if (!open) closeCertTextDialog();
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-violet-600" />
+              Texte de certificat IA
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Sélectionnez un certificat déjà généré pour cette session. Claude rédigera un texte
+              personnalisé basé sur la formation, le taux d'assiduité et les évaluations.
+            </p>
+
+            {/* Sélecteur de certificat */}
+            <div className="space-y-1.5">
+              <Label>Certificat du participant</Label>
+              <Select
+                value={certTextDialog?.certificateId || ""}
+                onValueChange={(certId) => {
+                  const cert = allCertificates?.find((c) => c.id === certId);
+                  const name = cert
+                    ? `${cert.user.prenom} ${cert.user.nom}`
+                    : "";
+                  setCertTextDialog((prev) =>
+                    prev ? { ...prev, certificateId: certId, participantName: name } : prev,
+                  );
+                  // Réinitialiser le texte si on change de certificat
+                  setCertTextValue("");
+                  setCertTextIsFallback(false);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choisir un certificat..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {allCertificates
+                    ?.filter((c) => c.session?.id === certTextDialog?.sessionId)
+                    .map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.user.prenom} {c.user.nom} — {c.numeroCertificat}
+                      </SelectItem>
+                    ))}
+                  {allCertificates?.filter((c) => c.session?.id === certTextDialog?.sessionId)
+                    .length === 0 && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">
+                      Aucun certificat pour cette session. Générez-les d'abord.
+                    </div>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Bouton de génération */}
+            <Button
+              onClick={() => handleGenerateCertText(certTextDialog?.certificateId || "")}
+              disabled={certTextLoading || !certTextDialog?.certificateId}
+              className="w-full gap-2 bg-violet-600 hover:bg-violet-700 text-white"
+            >
+              {certTextLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              {certTextLoading ? "Génération en cours…" : "Générer le texte via Claude"}
+            </Button>
+
+            {/* Aperçu éditable */}
+            {certTextValue && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Texte généré</span>
+                    {certTextIsFallback && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                        Fallback
+                      </span>
+                    )}
+                    {!certTextIsFallback && (
+                      <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-medium text-violet-700">
+                        Claude IA
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={copyCertText}
+                    className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Copier
+                  </button>
+                </div>
+
+                {/* Aperçu visuel du certificat */}
+                <div className="rounded-lg border-2 border-dashed border-violet-200 bg-violet-50/40 p-6">
+                  <div className="mb-3 text-center">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-violet-400">
+                      Aperçu certificat
+                    </p>
+                    {certTextDialog?.participantName && (
+                      <p className="mt-1 text-lg font-bold text-foreground">
+                        {certTextDialog.participantName}
+                      </p>
+                    )}
+                  </div>
+                  <div className="rounded bg-white p-4 shadow-sm">
+                    <p className="mb-2 text-xs font-medium text-muted-foreground italic">
+                      Nous certifions que…
+                    </p>
+                    <textarea
+                      value={certTextValue}
+                      onChange={(e) => setCertTextValue(e.target.value)}
+                      rows={10}
+                      className="w-full resize-y rounded border border-border bg-transparent px-2 py-1 text-sm leading-relaxed text-foreground outline-none focus:border-violet-400"
+                      placeholder="Le texte généré apparaîtra ici…"
+                    />
+                  </div>
+                  <p className="mt-2 text-center text-[10px] text-muted-foreground">
+                    Éditez le texte ci-dessus avant de l'utiliser dans le PDF final.
+                  </p>
+                </div>
+
+                {/* Actions finales */}
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    variant="outline"
+                    onClick={() => handleGenerateCertText(certTextDialog?.certificateId || "")}
+                    disabled={certTextLoading || !certTextDialog?.certificateId}
+                    className="flex-1 gap-2"
+                  >
+                    {certTextLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                    Régénérer
+                  </Button>
+                  <Button onClick={copyCertText} variant="outline" className="flex-1 gap-2">
+                    <Copy className="h-4 w-4" />
+                    Copier le texte
+                  </Button>
+                  <Button onClick={closeCertTextDialog} variant="ghost" className="gap-2">
+                    <X className="h-4 w-4" />
+                    Fermer
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* ─────────────────────────────────────────────────────────────────────── */}
 
       <AlertDialog
         open={!!deleteId}

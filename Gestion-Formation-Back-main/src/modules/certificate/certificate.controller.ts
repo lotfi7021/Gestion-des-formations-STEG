@@ -5,12 +5,17 @@ import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { UpdateCertificateDto } from './dto/update-certificate.dto';
 import { ManualJwtGuard } from '../auth/guards/manual-jwt.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
+import { AiService } from '../ai/ai.service';
+import { GenerateCertificateTextDto } from '../ai/dto/generate-certificate-text.dto';
 import * as fs from 'fs';
 import { join } from 'path';
 
 @Controller('certificates')
 export class CertificateController {
-  constructor(private readonly certificateService: CertificateService) {}
+  constructor(
+    private readonly certificateService: CertificateService,
+    private readonly aiService: AiService,
+  ) {}
 
   @Post()
   create(@Body() dto: CreateCertificateDto) {
@@ -66,5 +71,23 @@ export class CertificateController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.certificateService.remove(id);
+  }
+
+  // ─── IA : texte de certificat personnalisé ────────────────────────────────
+
+  /**
+   * POST /certificates/:id/generate-text
+   * Génère via Claude un texte de certificat personnalisé pour le participant.
+   * Retourne { text: string, isFallback: boolean } — le texte reste éditable
+   * avant la génération finale du PDF.
+   * Accessible aux admin uniquement.
+   */
+  @Post(':id/generate-text')
+  @UseGuards(ManualJwtGuard, AdminGuard)
+  generateText(
+    @Param('id') id: string,
+    @Body() dto: GenerateCertificateTextDto,
+  ) {
+    return this.aiService.generateCertificateText(id, dto.additionalMention);
   }
 }

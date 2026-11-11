@@ -8,6 +8,7 @@ import { FormationService } from './formation.service';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationModule } from '../notification/notification.module';
 import { MailModule } from '../mail/mail.module';
+import { AiModule } from '../ai/ai.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { MailModule } from '../mail/mail.module';
     AuthModule,
     NotificationModule,
     MailModule,
+    AiModule,
   ],
   controllers: [FormationController],
   providers: [FormationService],

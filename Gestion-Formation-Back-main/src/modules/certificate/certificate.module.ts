@@ -10,12 +10,14 @@ import { CertificateController } from './certificate.controller';
 import { CertificateService } from './certificate.service';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationModule } from '../notification/notification.module';
+import { AiModule } from '../ai/ai.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Certificate, DocumentSigne, Signature, User, Formation, Session]),
     AuthModule,
     NotificationModule,
+    AiModule,
   ],
   controllers: [CertificateController],
   providers: [CertificateService],

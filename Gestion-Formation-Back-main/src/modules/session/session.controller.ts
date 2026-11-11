@@ -9,6 +9,8 @@ import { ManualJwtGuard } from '../auth/guards/manual-jwt.guard';
 import { CabinetOrAdminGuard } from '../auth/guards/cabinet-or-admin.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { User } from '../../entities/user.entity';
+import { AiService } from '../ai/ai.service';
+import { GenerateSessionSummaryDto } from '../ai/dto/generate-session-summary.dto';
 
 function isUUID(v: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
@@ -18,6 +20,7 @@ function isUUID(v: string): boolean {
 export class SessionController {
   constructor(
     private readonly sessionService: SessionService,
+    private readonly aiService: AiService,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
   ) {}
 
@@ -92,5 +95,21 @@ export class SessionController {
   @UseGuards(ManualJwtGuard, AdminGuard)
   async clone(@Param('id') id: string) {
     return this.sessionService.cloneForPlatform(id);
+  }
+
+  // ─── IA : résumé de session ───────────────────────────────────────────────
+
+  /**
+   * POST /sessions/:id/summary
+   * Génère un résumé IA de la session (présences, évaluations, documents).
+   * Accessible aux admin, formateurs et cabinets.
+   */
+  @Post(':id/summary')
+  @UseGuards(ManualJwtGuard, CabinetOrAdminGuard)
+  generateSummary(
+    @Param('id') id: string,
+    @Body() dto: GenerateSessionSummaryDto,
+  ) {
+    return this.aiService.generateSessionSummary(id, dto.additionalContext);
   }
 }

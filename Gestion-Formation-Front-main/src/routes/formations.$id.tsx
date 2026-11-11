@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { getFormation } from "@/lib/api/formations";
 import { API_URL } from "@/lib/api/client";
 import { enrollInSession } from "@/lib/api/sessions";
+import { FormationAiAssistant } from "@/components/formation-ai-assistant";
 
 export const Route = createFileRoute("/formations/$id")({
   component: FormationPage,
@@ -241,6 +242,17 @@ function FormationPage() {
             })}
           </div>
         </section>
+
+        {/* Assistant IA — visible uniquement pour les participants inscrits */}
+        {(user?.role === "participant" || user?.role === "employe") &&
+          sessions.some((s) => s.participants?.some((p: { id: string }) => p.id === user?.id)) && (
+            <section className="mx-auto max-w-7xl px-6 pb-16">
+              <FormationAiAssistant
+                formationId={id}
+                formationTitre={formation.titre}
+              />
+            </section>
+          )}
 
         <Dialog open={paymentDialog !== null} onOpenChange={() => setPaymentDialog(null)}>
           <DialogContent>

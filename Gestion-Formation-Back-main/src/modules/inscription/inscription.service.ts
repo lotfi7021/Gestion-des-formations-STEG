@@ -5,8 +5,10 @@ import { Inscription } from '../../entities/inscription.entity';
 import { Session } from '../../entities/session.entity';
 import { User } from '../../entities/user.entity';
 import { Formation } from '../../entities/formation.entity';
+import { Presence } from '../../entities/presence.entity';
 import { StatutPaiement, NotificationType } from '../../common/enums';
 import { NotificationService } from '../notification/notification.service';
+import { PresenceService } from '../presence/presence.service';
 
 @Injectable()
 export class InscriptionService {
@@ -19,7 +21,10 @@ export class InscriptionService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Formation)
     private readonly formationRepository: Repository<Formation>,
+    @InjectRepository(Presence)
+    private readonly presenceRepository: Repository<Presence>,
     private readonly notificationService: NotificationService,
+    private readonly presenceService: PresenceService,
   ) {}
 
   async create(userId: string, sessionId: string): Promise<Inscription> {
@@ -133,6 +138,9 @@ export class InscriptionService {
     inscription.statutPaiement = StatutPaiement.PAYE;
     inscription.datePaiement = new Date();
     const saved = await this.inscriptionRepository.save(inscription);
+
+    // Initialiser automatiquement les présences (une par jour de session)
+    await this.presenceService.initPresencesForParticipant(session.id, inscription.userId);
 
     const label = `"${session.formation.titre}" du ${new Date(session.dateDebut).toLocaleDateString('fr-FR')}`;
 
