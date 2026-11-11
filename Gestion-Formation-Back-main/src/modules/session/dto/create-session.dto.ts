@@ -67,10 +67,5 @@ export class CreateSessionDto {
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })
-  employeIds?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @IsUUID('4', { each: true })
   formateurIds?: string[];
 }

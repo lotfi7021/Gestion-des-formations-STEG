@@ -43,12 +43,12 @@ export const employeSchema = z.object({
   email: z.string().email("Email invalide"),
   poste: z.string().optional(),
   departement: z.string().optional(),
+  directionText: z.string().optional(),
   telephone: z
     .string()
     .regex(/^(\+216)?\d{8}$/, "Numéro invalide (ex: +216XXXXXXXX)")
     .optional()
     .or(z.literal("")),
-  entrepriseText: z.string().optional(),
 });
 
 export const formateurSchema = z.object({

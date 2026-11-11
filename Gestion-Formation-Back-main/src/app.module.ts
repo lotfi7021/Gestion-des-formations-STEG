@@ -18,7 +18,6 @@ import { NotificationModule } from './modules/notification/notification.module';
 import { EvaluationModule } from './modules/evaluation/evaluation.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { FormateurModule } from './modules/formateur/formateur.module';
-import { EmployeModule } from './modules/employe/employe.module';
 import { InscriptionModule } from './modules/inscription/inscription.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { SessionDocumentModule } from './modules/session-document/session-document.module';
@@ -35,7 +34,6 @@ import { AiModule } from './modules/ai/ai.module';
     SessionModule,
     UserModule,
     FormateurModule,
-    EmployeModule,
     EntrepriseModule,
     PresenceModule,
     CertificateModule,

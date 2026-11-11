@@ -29,22 +29,28 @@ import {
   deleteSession,
   type Session,
 } from "@/lib/api/sessions";
-import { getFormations } from "@/lib/api/formations";
+import { getFormations, type Formation } from "@/lib/api/formations";
 import { API_BASE } from "@/lib/api/client";
-import { getEmployes } from "@/lib/api/employes";
+import { getEmployes, type Employe } from "@/lib/api/employes";
 import { getFormateurs } from "@/lib/api/formateurs";
-import { getParticipants } from "@/lib/api/users";
+import { getParticipants, type Participant } from "@/lib/api/users";
+
+/** Inscrit possible à une session : participant (User) ou employé STEG (User role=employe). */
+type PersonneInscriptible = {
+  id: string;
+  prenom: string;
+  nom: string;
+  identifiant?: string | null;
+};
+import type { UserRef } from "@/lib/api/types";
+import type { Formateur } from "@/lib/api/formateurs";
 import {
   generateSessionCertificates,
   getCertificates,
   type Certificate,
 } from "@/lib/api/certificates";
 import { generateSessionSummary, generateCertificateText } from "@/lib/api/ai";
-import {
-  generateConvention,
-  generateContratFormateur,
-  generateFeuilleEmargement,
-} from "@/lib/api/signatures";
+import { generateConvention, generateContratFormateur } from "@/lib/api/signatures";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -106,7 +112,6 @@ const emptyForm = {
   formationId: "",
   capaciteMax: "" as string | number,
   participantIds: [] as string[],
-  employeIds: [] as string[],
   formateurIds: [] as string[],
 };
 
@@ -118,8 +123,7 @@ function AdminSessions() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [employeSearch, setEmployeSearch] = useState("");
-  const [source, setSource] = useState<"employes" | "participants">("participants");
+  const [participantSearch, setParticipantSearch] = useState("");
   const [search, setSearch] = useState("");
 
   // ─── État résumé IA ───────────────────────────────────────────────────────
@@ -237,19 +241,18 @@ function AdminSessions() {
     queryKey: ["formations"],
     queryFn: () => getFormations(),
   });
-  const { data: employes } = useQuery({ queryKey: ["employes"], queryFn: getEmployes });
   const { data: formateurs } = useQuery({
     queryKey: ["formateurs"],
     queryFn: () => getFormateurs(),
   });
-  const { data: participants } = useQuery({ queryKey: ["participants"], queryFn: getParticipants });
-
-  const selectedFormation = formations?.find((f: any) => f.id === form.formationId);
-  const formationType = selectedFormation?.type;
-  const showSourceToggle = formationType === "intra";
-  const showEmployes = formationType === "inter" || (showSourceToggle && source === "employes");
-  const showParticipants =
-    formationType !== "inter" && (!showSourceToggle || source === "participants");
+  // Liste unifiée : employés STEG (role=employe) + participants (role=participant)
+  const { data: participants } = useQuery({
+    queryKey: ["participants", "employes-users"],
+    queryFn: async (): Promise<PersonneInscriptible[]> => {
+      const [users, employes] = await Promise.all([getParticipants(), getEmployes()]);
+      return [...users, ...employes];
+    },
+  });
 
   const saveMutation = useMutation({
     mutationFn: () => {
@@ -257,7 +260,6 @@ function AdminSessions() {
         ...form,
         capaciteMax: form.capaciteMax === "" ? undefined : Number(form.capaciteMax),
         participantIds: form.participantIds.length ? form.participantIds : undefined,
-        employeIds: form.employeIds.length ? form.employeIds : undefined,
         formateurIds: form.formateurIds.length ? form.formateurIds : undefined,
       };
       return editingId ? updateSession(editingId, payload) : createSession(payload);
@@ -287,11 +289,11 @@ function AdminSessions() {
 
   const certMutation = useMutation({
     mutationFn: (sessionId: string) => generateSessionCertificates(sessionId),
-    onSuccess: (data: any) => {
+    onSuccess: (data: unknown[]) => {
       toast.success(`${data.length} certificat(s) généré(s) avec succès`);
       queryClient.invalidateQueries({ queryKey: ["documents-signes"] });
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(
         err instanceof Error ? err.message : "Erreur lors de la génération des certificats",
       );
@@ -305,7 +307,7 @@ function AdminSessions() {
       toast.success("Convention générée");
       queryClient.invalidateQueries({ queryKey: ["documents-signes"] });
     },
-    onError: (err: any) => toast.error(err instanceof Error ? err.message : "Erreur"),
+    onError: (err: Error) => toast.error(err.message || "Erreur"),
   });
 
   const contratMutation = useMutation({
@@ -315,16 +317,7 @@ function AdminSessions() {
       toast.success("Contrat formateur généré");
       queryClient.invalidateQueries({ queryKey: ["documents-signes"] });
     },
-    onError: (err: any) => toast.error(err instanceof Error ? err.message : "Erreur"),
-  });
-
-  const emargementMutation = useMutation({
-    mutationFn: (sessionId: string) => generateFeuilleEmargement(sessionId),
-    onSuccess: () => {
-      toast.success("Feuille d'émargement générée");
-      queryClient.invalidateQueries({ queryKey: ["documents-signes"] });
-    },
-    onError: (err: any) => toast.error(err instanceof Error ? err.message : "Erreur"),
+    onError: (err: Error) => toast.error(err.message || "Erreur"),
   });
 
   const completeMutation = useMutation({
@@ -333,7 +326,7 @@ function AdminSessions() {
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
       toast.success("Session marquée comme terminée");
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err instanceof Error ? err.message : "Erreur");
     },
   });
@@ -352,30 +345,12 @@ function AdminSessions() {
       lieu: s.lieu || "",
       formationId: s.formation?.id || "",
       capaciteMax: s.capaciteMax ?? "",
-      participantIds: s.participants?.map((p: any) => p.id) || [],
-      employeIds: s.employes?.map((e: any) => e.id) || [],
-      formateurIds: s.formateurs?.map((f: any) => f.id) || [],
+      participantIds: s.participants?.map((p) => p.id) || [],
+      formateurIds: s.formateurs?.map((f) => f.id) || [],
     });
     setOpen(true);
   };
 
-  const filteredEmployes =
-    employes?.filter(
-      (e: any) =>
-        !employeSearch ||
-        `${e.nom} ${e.prenom} ${e.identifiant || ""}`
-          .toLowerCase()
-          .includes(employeSearch.toLowerCase()),
-    ) || [];
-
-  const toggleEmploye = (id: string) => {
-    setForm((f) => ({
-      ...f,
-      employeIds: f.employeIds.includes(id)
-        ? f.employeIds.filter((x) => x !== id)
-        : [...f.employeIds, id],
-    }));
-  };
   const toggleParticipant = (id: string) => {
     setForm((f) => ({
       ...f,
@@ -446,7 +421,7 @@ function AdminSessions() {
                     <SelectValue placeholder="Sélectionner une formation" />
                   </SelectTrigger>
                   <SelectContent>
-                    {formations?.map((f: any) => (
+                    {formations?.map((f: Formation) => (
                       <SelectItem key={f.id} value={f.id}>
                         {f.titre}
                       </SelectItem>
@@ -496,69 +471,27 @@ function AdminSessions() {
                   onChange={(e) => setForm({ ...form, capaciteMax: e.target.value })}
                 />
               </div>
-              {showSourceToggle && (
-                <div>
-                  <Label>Type de participants</Label>
-                  <div className="flex gap-2 rounded-md border border-border p-1">
-                    <button
-                      type="button"
-                      onClick={() => setSource("employes")}
-                      className={`flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors ${source === "employes" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                    >
-                      Employés
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSource("participants")}
-                      className={`flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors ${source === "participants" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                    >
-                      Participants
-                    </button>
-                  </div>
+              <div>
+                <Label>Participants</Label>
+                <div className="relative mb-1">
+                  <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    placeholder="Rechercher par nom ou identifiant…"
+                    value={participantSearch}
+                    onChange={(e) => setParticipantSearch(e.target.value)}
+                    className="w-full rounded-md border border-border bg-background py-1.5 pl-7 pr-2 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
+                  />
                 </div>
-              )}
-              {showEmployes && (
-                <div>
-                  <Label>Employés</Label>
-                  <div className="relative mb-1">
-                    <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      placeholder="Rechercher par identifiant ou nom…"
-                      value={employeSearch}
-                      onChange={(e) => setEmployeSearch(e.target.value)}
-                      className="w-full rounded-md border border-border bg-background py-1.5 pl-7 pr-2 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
-                    />
-                  </div>
-                  <div className="max-h-40 overflow-y-auto space-y-1 rounded-md border p-2">
-                    {filteredEmployes.map((e: any) => (
-                      <label key={e.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={form.employeIds.includes(e.id)}
-                          onChange={() => toggleEmploye(e.id)}
-                          className="rounded"
-                        />
-                        <span className="font-mono text-xs text-muted-foreground">
-                          {e.identifiant || "—"}
-                        </span>
-                        <span>
-                          {e.prenom} {e.nom}
-                        </span>
-                      </label>
-                    ))}
-                    {filteredEmployes.length === 0 && (
-                      <p className="text-xs text-muted-foreground py-2 text-center">
-                        {employeSearch ? "Aucun employé trouvé" : "Aucun employé disponible"}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-              {showParticipants && (
-                <div>
-                  <Label>Participants</Label>
-                  <div className="max-h-40 overflow-y-auto space-y-1 rounded-md border p-2">
-                    {participants?.map((p: any) => (
+                <div className="max-h-40 overflow-y-auto space-y-1 rounded-md border p-2">
+                  {(participants || [])
+                    .filter(
+                      (p: PersonneInscriptible) =>
+                        !participantSearch ||
+                        `${p.nom} ${p.prenom} ${p.identifiant || ""}`
+                          .toLowerCase()
+                          .includes(participantSearch.toLowerCase()),
+                    )
+                    .map((p: PersonneInscriptible) => (
                       <label key={p.id} className="flex items-center gap-2 text-sm cursor-pointer">
                         <input
                           type="checkbox"
@@ -566,23 +499,27 @@ function AdminSessions() {
                           onChange={() => toggleParticipant(p.id)}
                           className="rounded"
                         />
+                        {p.identifiant && (
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {p.identifiant}
+                          </span>
+                        )}
                         <span>
                           {p.prenom} {p.nom}
                         </span>
                       </label>
                     ))}
-                    {(!participants || participants.length === 0) && (
-                      <p className="text-xs text-muted-foreground py-2 text-center">
-                        Aucun participant disponible
-                      </p>
-                    )}
-                  </div>
+                  {(!participants || participants.length === 0) && (
+                    <p className="text-xs text-muted-foreground py-2 text-center">
+                      Aucun participant disponible
+                    </p>
+                  )}
                 </div>
-              )}
+              </div>
               <div>
                 <Label>Formateurs</Label>
                 <div className="max-h-32 overflow-y-auto space-y-1 rounded-md border p-2">
-                  {formateurs?.map((f: any) => (
+                  {formateurs?.map((f: Formateur) => (
                     <label key={f.id} className="flex items-center gap-2 text-sm cursor-pointer">
                       <input
                         type="checkbox"
@@ -645,7 +582,7 @@ function AdminSessions() {
                       {s.formation?.titre || "Formation"}
                     </h3>
                     <p className="truncate text-sm text-muted-foreground">
-                      {s.formateurs?.map((f: any) => `${f.prenom} ${f.nom}`).join(", ") ||
+                      {s.formateurs?.map((f) => `${f.prenom} ${f.nom}`).join(", ") ||
                         "Aucun formateur"}{" "}
                       · {s.lieu || "À définir"}
                     </p>
@@ -666,9 +603,7 @@ function AdminSessions() {
                     )}
                     <div className="hidden text-right md:block">
                       <p className="text-xs uppercase text-muted-foreground">Participants</p>
-                      <p className="text-sm font-medium">
-                        {(s.participants?.length || 0) + (s.employes?.length || 0)}
-                      </p>
+                      <p className="text-sm font-medium">{s.participants?.length || 0}</p>
                     </div>
                     <button
                       onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
@@ -709,7 +644,7 @@ function AdminSessions() {
                       </p>
                       {s.participants?.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
-                          {s.participants.map((p: any) => (
+                          {s.participants.map((p: UserRef) => (
                             <span
                               key={p.id}
                               className="rounded-md bg-secondary px-2.5 py-1 text-xs font-medium"
@@ -752,18 +687,6 @@ function AdminSessions() {
                               <Award className="h-4 w-4" />
                             )}
                             {certMutation.isPending ? "Génération..." : "Certificats"}
-                          </button>
-                          <button
-                            onClick={() => emargementMutation.mutate(s.id)}
-                            disabled={emargementMutation.isPending}
-                            className="flex items-center justify-center gap-2 rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
-                          >
-                            {emargementMutation.isPending ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <FileSignature className="h-4 w-4" />
-                            )}
-                            {emargementMutation.isPending ? "Génération..." : "Émargement"}
                           </button>
                           <button
                             onClick={() => openCertTextDialog(s.id)}
@@ -857,7 +780,7 @@ function AdminSessions() {
                             Générer des documents (convention, contrat)
                           </summary>
                           <div className="mt-2 space-y-2">
-                            {s.participants?.map((p: any) => (
+                            {s.participants?.map((p: UserRef) => (
                               <button
                                 key={p.id}
                                 onClick={() =>
@@ -873,7 +796,7 @@ function AdminSessions() {
                                 Convention : {p.prenom} {p.nom}
                               </button>
                             ))}
-                            {s.formateurs?.map((f: any) => (
+                            {s.formateurs?.map((f: UserRef) => (
                               <button
                                 key={f.id}
                                 onClick={() =>
@@ -890,25 +813,6 @@ function AdminSessions() {
                         </details>
                       </div>
                     )}
-                    <div>
-                      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Employés
-                      </p>
-                      {s.employes?.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {s.employes.map((e: any) => (
-                            <span
-                              key={e.id}
-                              className="rounded-md bg-secondary px-2.5 py-1 text-xs font-medium"
-                            >
-                              {e.prenom} {e.nom}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">Aucun</p>
-                      )}
-                    </div>
                   </div>
                 )}
               </div>

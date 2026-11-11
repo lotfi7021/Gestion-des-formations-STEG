@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Like } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from '../../entities/user.entity';
 import { Entreprise } from '../../entities/entreprise.entity';
@@ -180,6 +180,102 @@ export class UserService {
       where: { role: UserRole.PARTICIPANT },
       relations: { entreprise: true },
     });
+  }
+
+  /** Employés STEG = Users avec role='employe' (sans données sensibles). */
+  async findAllEmployes(): Promise<User[]> {
+    return this.userRepository.find({
+      where: { role: UserRole.EMPLOYE },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+        isActive: true,
+        nom: true,
+        prenom: true,
+        telephone: true,
+        poste: true,
+        departement: true,
+        directionText: true,
+        dateEmbauche: true,
+        identifiant: true,
+        avatarUrl: true,
+        createdAt: true,
+      },
+      order: { identifiant: 'DESC' },
+    });
+  }
+
+  /**
+   * Crée un compte employé STEG (User role='employe') avec email d'identifiants.
+   * Remplace l'ancien EmployeService.create (table `employes` supprimée).
+   */
+  async createEmploye(dto: {
+    nom: string;
+    prenom: string;
+    email: string;
+    telephone?: string;
+    poste?: string;
+    departement?: string;
+    directionText?: string;
+    dateEmbauche?: string;
+  }): Promise<User> {
+    await this.ensureEmailNotTaken(dto.email);
+
+    const identifiant = await this.generateIdentifiant();
+    const tempPassword =
+      Math.random().toString(36).slice(-10) +
+      Math.random().toString(36).slice(-2).toUpperCase();
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+    const username = dto.email.split('@')[0].replace(/[^a-zA-Z0-9._-]/g, '_');
+
+    const user = this.userRepository.create({
+      username,
+      email: dto.email,
+      password: hashedPassword,
+      role: UserRole.EMPLOYE,
+      isActive: true,
+      nom: dto.nom,
+      prenom: dto.prenom,
+      telephone: dto.telephone,
+      poste: dto.poste,
+      departement: dto.departement,
+      directionText: dto.directionText,
+      dateEmbauche: dto.dateEmbauche ? new Date(dto.dateEmbauche) : undefined,
+      identifiant,
+    });
+    const saved = await this.userRepository.save(user);
+
+    await this.mailService.send({
+      to: saved.email,
+      subject: 'Bienvenue sur steg_form — Vos identifiants de connexion',
+      html: this.welcomeEmailHtml(saved, tempPassword, 'employé STEG'),
+    });
+
+    const admin = await this.userRepository.findOne({ where: { role: UserRole.ADMIN } });
+    if (admin) {
+      await this.notificationService.create({
+        type: NotificationType.NOUVEL_INSCRIT,
+        titre: `Nouvel employé : ${saved.prenom} ${saved.nom}`,
+        message: `${saved.prenom} ${saved.nom} (${saved.email}) a été ajouté comme employé STEG.`,
+        userId: admin.id,
+      });
+    }
+
+    return saved;
+  }
+
+  /** Génère un identifiant STEG unique (ex: 2026STG005). */
+  private async generateIdentifiant(): Promise<string> {
+    const year = new Date().getFullYear().toString();
+    const maxUser = await this.userRepository.findOne({
+      where: { identifiant: Like(`${year}STG%`) },
+      order: { identifiant: 'DESC' },
+    });
+    const num = maxUser?.identifiant?.match(/(\d+)$/)?.[1];
+    const nextNum = num ? parseInt(num, 10) + 1 : 1;
+    return `${year}STG${nextNum.toString().padStart(3, '0')}`;
   }
 
   async findOne(id: string): Promise<User> {

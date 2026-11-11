@@ -1,29 +1,10 @@
 import { api } from "./client";
+import type { UserRef } from "./types";
 
-export type Employe = {
-  id: string;
-  nom: string;
-  prenom: string;
-  email: string;
-  telephone: string | null;
-  poste: string | null;
-  departement: string | null;
-  entrepriseText: string | null;
-  dateEmbauche: string | null;
-  identifiant: string;
-  userActive?: boolean;
-  userId?: string;
-  createdAt: string;
-  updatedAt: string;
+/** Un employé STEG est un User avec role='employe' (poste, département, identifiant inclus). */
+export type Employe = UserRef & {
+  isActive: boolean;
 };
-
-export async function getEmployes(): Promise<Employe[]> {
-  return api.get<Employe[]>("/employes");
-}
-
-export async function getEmploye(id: string): Promise<Employe> {
-  return api.get<Employe>(`/employes/${id}`);
-}
 
 export type CreateEmployeDto = {
   nom: string;
@@ -32,17 +13,24 @@ export type CreateEmployeDto = {
   telephone?: string;
   poste?: string;
   departement?: string;
-  entrepriseText?: string;
+  directionText?: string;
+  dateEmbauche?: string;
 };
 
+/** Récupère les employés STEG = Users avec role='employe'. */
+export async function getEmployes(): Promise<Employe[]> {
+  return api.get<Employe[]>("/users/employes");
+}
+
+/** Crée un compte employé STEG (User role='employe' + email d'identifiants). */
 export async function createEmploye(dto: CreateEmployeDto): Promise<Employe> {
-  return api.post<Employe>("/employes", dto);
+  return api.post<Employe>("/users/employes", dto);
 }
 
 export async function updateEmploye(id: string, dto: Partial<CreateEmployeDto>): Promise<Employe> {
-  return api.patch<Employe>(`/employes/${id}`, dto);
+  return api.patch<Employe>(`/users/${id}`, dto);
 }
 
 export async function deleteEmploye(id: string): Promise<void> {
-  return api.delete(`/employes/${id}`);
+  return api.delete(`/users/${id}`);
 }

@@ -208,7 +208,7 @@ function EvaluerPage() {
       toast.success("Évaluation envoyée avec succès !");
       queryClient.invalidateQueries({ queryKey: ["my-sessions"] });
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       try {
         const msg = JSON.parse(err.message);
         toast.error(msg.message || "Erreur lors de l'envoi");

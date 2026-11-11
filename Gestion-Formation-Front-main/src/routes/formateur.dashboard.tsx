@@ -20,7 +20,7 @@ import { ProtectedRoute } from "@/components/protected-route";
 import { PageShell } from "@/components/page-shell";
 import { useAuth } from "@/contexts/auth-context";
 import { API_URL, API_BASE } from "@/lib/api/client";
-import { getMySessions } from "@/lib/api/sessions";
+import { getMySessions, type Session } from "@/lib/api/sessions";
 import {
   getSessionDocuments,
   uploadSessionDocument,
@@ -87,7 +87,7 @@ function FormateurDashboard() {
           </div>
         ) : (
           <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {mesSessions.map((s: any) => (
+            {mesSessions.map((s: Session) => (
               <SessionCard key={s.id} session={s} />
             ))}
           </div>
@@ -97,7 +97,7 @@ function FormateurDashboard() {
   );
 }
 
-function SessionCard({ session }: { session: any }) {
+function SessionCard({ session }: { session: Session }) {
   const [expanded, setExpanded] = useState(false);
   const [uploading, setUploading] = useState(false);
   const queryClient = useQueryClient();

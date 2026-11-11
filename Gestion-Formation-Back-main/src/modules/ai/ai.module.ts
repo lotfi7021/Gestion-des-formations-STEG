@@ -8,6 +8,7 @@ import { Evaluation } from '../../entities/evaluation.entity';
 import { SessionDocument } from '../../entities/session-document.entity';
 import { Inscription } from '../../entities/inscription.entity';
 import { Formation } from '../../entities/formation.entity';
+import { User } from '../../entities/user.entity';
 
 import { AuthModule } from '../auth/auth.module';
 import { AiService } from './ai.service';
@@ -25,6 +26,7 @@ import { EmbeddingsService } from './rag/embeddings.service';
       SessionDocument,
       Inscription,
       Formation,
+      User,
     ]),
     AuthModule,
   ],

@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Param, Post, UseGuards, Req } from '@nestjs/common';
 import { AiService } from './ai.service';
 import { GenerateSessionSummaryDto } from './dto/generate-session-summary.dto';
 import { GenerateCertificateTextDto } from './dto/generate-certificate-text.dto';
@@ -39,4 +39,5 @@ export class AiController {
   ) {
     return this.aiService.generateCertificateText(certificateId, dto.additionalMention);
   }
+
 }

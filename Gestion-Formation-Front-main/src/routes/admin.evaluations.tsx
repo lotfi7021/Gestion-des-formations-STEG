@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { AdminShell } from "@/components/admin-shell";
-import { getEvaluations } from "@/lib/api/evaluations";
+import { getEvaluations, type Evaluation } from "@/lib/api/evaluations";
 import { getFormations } from "@/lib/api/formations";
 import { getFormateurs } from "@/lib/api/formateurs";
 import {
@@ -16,6 +16,7 @@ import {
   ThumbsUp,
   FileText,
   Building,
+  type LucideIcon,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -26,7 +27,7 @@ export const Route = createFileRoute("/admin/evaluations")({
   component: AdminEvaluationsPage,
 });
 
-const sectionLabels: Record<string, { label: string; icon: any }> = {
+const sectionLabels: Record<string, { label: string; icon: LucideIcon }> = {
   noteObjectifClarte: { label: "Clarté des objectifs", icon: BookOpen },
   noteContenu: { label: "Contenu", icon: BookOpen },
   noteUtilite: { label: "Utilité pour le travail", icon: BookOpen },
@@ -91,7 +92,7 @@ function pct(val: number, total: number) {
 function AdminEvaluationsPage() {
   const [formationFilter, setFormationFilter] = useState("");
   const [formateurFilter, setFormateurFilter] = useState("");
-  const [selectedEval, setSelectedEval] = useState<any>(null);
+  const [selectedEval, setSelectedEval] = useState<Evaluation | null>(null);
   const { data: formations } = useQuery({
     queryKey: ["formations"],
     queryFn: () => getFormations(),
@@ -117,7 +118,9 @@ function AdminEvaluationsPage() {
 
   const avgSection = (fields: string[]) => {
     if (!evaluations) return "—";
-    const vals = evaluations.flatMap((e) => fields.map((f) => (e as any)[f]));
+    const vals = evaluations.flatMap((e) =>
+      fields.map((f) => (e as unknown as Record<string, number | undefined>)[f]),
+    );
     return avg(vals);
   };
 
@@ -378,8 +381,11 @@ function AdminEvaluationsPage() {
 
               {sectionGroups.map((group) => {
                 const values = group.fields
-                  .map((f) => ({ key: f, value: (selectedEval as any)[f] }))
-                  .filter((v) => v.value != null);
+                  .map((f) => ({
+                    key: f,
+                    value: (selectedEval as unknown as Record<string, number | undefined>)[f],
+                  }))
+                  .filter((v): v is { key: string; value: number } => v.value != null);
                 if (values.length === 0) return null;
                 return (
                   <div key={group.key}>

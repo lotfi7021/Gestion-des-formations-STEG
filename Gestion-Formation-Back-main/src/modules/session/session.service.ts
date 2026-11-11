@@ -5,7 +5,6 @@ import PDFDocument from 'pdfkit';
 import { Session } from '../../entities/session.entity';
 import { Formation } from '../../entities/formation.entity';
 import { User } from '../../entities/user.entity';
-import { Employe } from '../../entities/employe.entity';
 import { UserRole, NotificationType } from '../../common/enums';
 import { NotificationService } from '../notification/notification.service';
 import { MailService } from '../mail/mail.service';
@@ -23,8 +22,6 @@ export class SessionService {
     private readonly formationRepository: Repository<Formation>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(Employe)
-    private readonly employeRepository: Repository<Employe>,
     private readonly notificationService: NotificationService,
     private readonly mailService: MailService,
     private readonly inscriptionService: InscriptionService,
@@ -40,15 +37,17 @@ export class SessionService {
       dateFin: new Date(dto.dateFin),
       formation,
       participants: [],
-      employes: [],
       formateurs: [],
     });
 
     if (dto.participantIds?.length) {
-      session.participants = await this.userRepository.find({ where: { id: In(dto.participantIds), role: UserRole.PARTICIPANT } });
-    }
-    if (dto.employeIds?.length) {
-      session.employes = await this.employeRepository.find({ where: { id: In(dto.employeIds) } });
+      // Participants = employés STEG et/ou participants externes (roles employe/participant)
+      session.participants = await this.userRepository.find({
+        where: [
+          { id: In(dto.participantIds), role: UserRole.PARTICIPANT },
+          { id: In(dto.participantIds), role: UserRole.EMPLOYE },
+        ],
+      });
     }
     if (dto.formateurIds?.length) {
       session.formateurs = await this.userRepository.find({ where: { id: In(dto.formateurIds), role: UserRole.FORMATEUR } });
@@ -110,14 +109,14 @@ export class SessionService {
     }
     return this.sessionRepository.find({
       where,
-      relations: { formation: true, participants: true, employes: true, formateurs: true },
+      relations: { formation: true, participants: true, formateurs: true },
     });
   }
 
   async findOne(id: string): Promise<Session> {
     const session = await this.sessionRepository.findOne({
       where: { id },
-      relations: { formation: true, participants: true, employes: true, formateurs: true, presences: true, evaluations: true },
+      relations: { formation: true, participants: true, formateurs: true, presences: true, evaluations: true },
     });
     if (!session) throw new NotFoundException(`Session #${id} not found`);
     return session;
@@ -131,9 +130,6 @@ export class SessionService {
     }
     if (dto.participantIds) {
       session.participants = await this.userRepository.find({ where: { id: In(dto.participantIds) } });
-    }
-    if (dto.employeIds) {
-      session.employes = await this.employeRepository.find({ where: { id: In(dto.employeIds) } });
     }
     if (dto.formateurIds) {
       session.formateurs = await this.userRepository.find({ where: { id: In(dto.formateurIds) } });
@@ -167,24 +163,8 @@ export class SessionService {
 
     const sessions = await this.sessionRepository.find({
       where: { participants: { id: userId } },
-      relations: { formation: true, formateurs: true, employes: true },
+      relations: { formation: true, formateurs: true, participants: true },
     });
-
-    if (role === UserRole.EMPLOYE) {
-      const user = await this.userRepository.findOne({ where: { id: userId } });
-      if (user) {
-        const employe = await this.employeRepository.findOne({ where: { email: user.email } });
-        if (employe) {
-          const employeSessions = await this.sessionRepository.find({
-            where: { employes: { id: employe.id } },
-            relations: { formation: true, formateurs: true, employes: true },
-          });
-          for (const s of employeSessions) {
-            if (!sessions.find((x) => x.id === s.id)) sessions.push(s);
-          }
-        }
-      }
-    }
 
     return sessions;
   }
@@ -192,7 +172,7 @@ export class SessionService {
   async generatePresenceList(id: string): Promise<{ buffer: Buffer; titre: string }> {
     const session = await this.sessionRepository.findOne({
       where: { id },
-      relations: { formation: true, participants: true, employes: true, formateurs: true },
+      relations: { formation: true, participants: true, formateurs: true },
     });
     if (!session) throw new NotFoundException(`Session #${id} not found`);
 
@@ -226,8 +206,11 @@ export class SessionService {
     }
 
     const allParticipants: { nom: string; prenom: string; identifiant?: string }[] = [
-      ...(session.participants || []).map((p) => ({ nom: p.nom, prenom: p.prenom })),
-      ...(session.employes || []).map((e) => ({ nom: e.nom, prenom: e.prenom, identifiant: e.identifiant })),
+      ...(session.participants || []).map((p) => ({
+        nom: p.nom,
+        prenom: p.prenom,
+        identifiant: p.identifiant,
+      })),
     ];
 
     if (allParticipants.length === 0) {
@@ -290,7 +273,6 @@ export class SessionService {
 
       // Delete join table records first
       await tx.query(`DELETE FROM session_participants WHERE session_id = ?`, [id]);
-      await tx.query(`DELETE FROM session_employes WHERE session_id = ?`, [id]);
       await tx.query(`DELETE FROM session_formateurs WHERE session_id = ?`, [id]);
 
       // Delete child entities

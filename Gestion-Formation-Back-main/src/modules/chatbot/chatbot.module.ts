@@ -6,17 +6,14 @@ import { Formation } from '../../entities/formation.entity';
 import { Session } from '../../entities/session.entity';
 import { Inscription } from '../../entities/inscription.entity';
 import { User } from '../../entities/user.entity';
-import { Employe } from '../../entities/employe.entity';
 import { Evaluation } from '../../entities/evaluation.entity';
 import { AuthModule } from '../auth/auth.module';
-import { EmployeModule } from '../employe/employe.module';
 import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Formation, Session, Inscription, User, Employe, Evaluation]),
+    TypeOrmModule.forFeature([Formation, Session, Inscription, User, Evaluation]),
     AuthModule,
-    EmployeModule,
     MailModule,
   ],
   controllers: [ChatbotController],

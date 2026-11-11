@@ -62,7 +62,7 @@ function AdminParametres() {
       setConfirmPassword("");
       setPasswordError("Mot de passe mis à jour avec succès");
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       setPasswordError(err?.message || "Erreur lors du changement de mot de passe");
     },
   });

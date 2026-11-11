@@ -79,15 +79,6 @@ export class SignatureController {
     return this.signatureService.generateContratFormateur(sessionId, formateurId, req.user.sub);
   }
 
-  @Post('generate-emargement/:sessionId')
-  @UseGuards(ManualJwtGuard, AdminGuard)
-  generateFeuilleEmargement(
-    @Param('sessionId') sessionId: string,
-    @Req() req: any,
-  ) {
-    return this.signatureService.generateFeuilleEmargement(sessionId, req.user.sub);
-  }
-
   @Get('documents')
   @UseGuards(ManualJwtGuard, AdminGuard)
   getAllDocuments() {

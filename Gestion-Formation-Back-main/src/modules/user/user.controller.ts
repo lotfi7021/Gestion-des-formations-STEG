@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@n
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { CreateEmployeDto } from '../employe/dto/create-employe.dto';
+import { CreateParticipantDto } from './dto/create-participant.dto';
 import { ManualJwtGuard } from '../auth/guards/manual-jwt.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 
@@ -15,6 +15,7 @@ export class UserController {
     return this.userService.create(dto);
   }
 
+  @UseGuards(ManualJwtGuard, AdminGuard)
   @Get()
   findAll() {
     return this.userService.findAll();
@@ -26,8 +27,24 @@ export class UserController {
   }
 
   @Post('participants')
-  createParticipant(@Body() dto: CreateEmployeDto) {
+  createParticipant(@Body() dto: CreateParticipantDto) {
     return this.userService.createParticipant(dto);
+  }
+
+  /**
+   * Employés STEG = Users avec role='employe'
+   * (ancienne table `employes` fusionnée dans `users`).
+   */
+  @UseGuards(ManualJwtGuard, AdminGuard)
+  @Get('employes')
+  findEmployes() {
+    return this.userService.findAllEmployes();
+  }
+
+  @UseGuards(ManualJwtGuard, AdminGuard)
+  @Post('employes')
+  createEmploye(@Body() dto: CreateParticipantDto) {
+    return this.userService.createEmploye(dto);
   }
 
   @Get(':id')

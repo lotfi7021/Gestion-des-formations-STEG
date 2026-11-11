@@ -75,9 +75,7 @@ function AdminParticipants() {
     mutationFn: () => {
       const { entrepriseText, ...rest } = form;
       const payload = { ...rest, entrepriseText: entrepriseText || undefined };
-      return editingId
-        ? updateParticipant(editingId, payload as any)
-        : createParticipant(payload as any);
+      return editingId ? updateParticipant(editingId, payload) : createParticipant(payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["participants"] });
@@ -88,7 +86,7 @@ function AdminParticipants() {
         editingId ? "Participant modifié" : "Participant ajouté — email de connexion envoyé",
       );
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       try {
         const msg = JSON.parse(err.message);
         toast.error(msg.message || "Erreur");

@@ -15,7 +15,7 @@ export type Signature = {
 
 export type DocumentSigne = {
   id: string;
-  type: "convention_formation" | "feuille_emargement" | "contrat_formateur" | "certificat";
+  type: "convention_formation" | "contrat_formateur" | "certificat";
   titre: string;
   fileUrl: string;
   fileSize: string | null;
@@ -73,10 +73,6 @@ export async function generateContratFormateur(
   formateurId: string,
 ): Promise<DocumentSigne> {
   return api.post<DocumentSigne>(`/signatures/generate-contrat/${sessionId}/${formateurId}`);
-}
-
-export async function generateFeuilleEmargement(sessionId: string): Promise<DocumentSigne> {
-  return api.post<DocumentSigne>(`/signatures/generate-emargement/${sessionId}`);
 }
 
 export async function getAllDocumentsSignes(): Promise<DocumentSigne[]> {
